@@ -6,10 +6,9 @@ Basic types of rules
    :caption: Contents:
 
    simple_rule
-
-.. bug_injection
-.. intro_slides
-.. erc20
-.. misc_rules
-.. vacuity
-.. exercises
+   simple_voting_rule
+   bug_injection
+   intro_slides
+   misc_rules
+   vacuity
+   exercises

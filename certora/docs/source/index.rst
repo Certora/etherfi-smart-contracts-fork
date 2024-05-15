@@ -13,8 +13,9 @@ These are lecture notes for the Certora Prover training for ether.fi.
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
+   :numbered: 2
 
    lesson1/index
 
@@ -55,7 +56,7 @@ Indices and tables
 
       pip3 install -r requirements.txt
   
-   Next, :file:`certora/docs/source/conf.py` change the value of ``link_to_github`` to
+   Next, in :file:`certora/docs/source/conf.py` change the value of ``link_to_github`` to
    ``False``. Finally, run:
 
    .. code-block:: bash
