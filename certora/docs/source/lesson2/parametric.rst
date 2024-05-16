@@ -32,6 +32,8 @@ The rule
    We filter out :cvl:`upgradeToAndCall` for the same reason we did in
    :ref:`filter_out_upgrade`.
 
+* `Report link`_.
+
 
 .. Links
    -----
@@ -41,3 +43,6 @@ The rule
 
 .. _Parametric rules (from Documentation):
    https://docs.certora.com/en/latest/docs/cvl/rules.html#parametric-rules
+
+.. _Report link:
+   https://prover.certora.com/output/98279/b05103d16c8d4536bdca936bc594d1fb?anonymousKey=f3ce4d37b2125fe1ab232bda87d1189bea1197e6
