@@ -9,8 +9,8 @@ Link to the slides: `Induction reasoning slides`_.
 
    invariant
    parametric
-.. preserved
-   inv_vs_param
+   preserved
+.. inv_vs_param
    exercises
 
 .. Links

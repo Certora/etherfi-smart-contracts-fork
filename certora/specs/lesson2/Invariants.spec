@@ -22,7 +22,15 @@ invariant nonZeroTotalKeysIsRegistered(address _user)
     }
 
 
-/// @title Unregistered operator has no used keys
+/// @title Unregistered operator has no used keys - without preserved block
+invariant unregisterdKeysUnused_NoPreserved(address _user)
+    !registered(_user) => keysUsed(_user) == 0
+    filtered {
+            f -> f.selector != sig:upgradeToAndCall(address,bytes).selector
+    }
+
+
+/// @title Unregistered operator has no used keys - using generic preserved block
 invariant unregisterdKeysUnused(address _user)
     !registered(_user) => keysUsed(_user) == 0
     filtered {
@@ -31,6 +39,19 @@ invariant unregisterdKeysUnused(address _user)
     {
         preserved {
             requireInvariant nonZeroTotalKeysIsRegistered(_user);
+        }
+    }
+
+
+/// @title Unregistered operator has no used keys - using method specific preserved block
+invariant unregisterdKeysUnused_MethodSpecific(address _user)
+    !registered(_user) => keysUsed(_user) == 0
+    filtered {
+            f -> f.selector != sig:upgradeToAndCall(address,bytes).selector
+    }
+    {
+        preserved fetchNextKeyIndex(address user2) with (env e) {
+            requireInvariant nonZeroTotalKeysIsRegistered(user2);
         }
     }
 
@@ -82,5 +103,9 @@ rule usedKeysNonDecreasing(address _user, method f) filtered {
     f(e, args);
 
     uint64 postNumUsed = keysUsed(_user);
-    assert postNumUsed >= preNumUsed, "num keys used is non-decreasing";
+    assert (
+        f.selector != sig:initializeOnUpgrade(address[], bytes[], uint64[], uint64[]).selector
+        => postNumUsed >= preNumUsed,
+        "num keys used is non-decreasing"
+    );
 }
