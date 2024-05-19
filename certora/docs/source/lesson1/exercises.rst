@@ -49,3 +49,14 @@ holds several buggy implementations of the
 
    * :clink:`VotingBug5.sol </certora/training-examples/lesson1/buggy_voting/VotingBug5.sol>`
 
+
+A classic ERC-20 blunder
+------------------------
+*(Optional exercise).*
+
+In :clink:`/certora/training-examples/ERC20/contracts/broken/ERC20Bug1.sol` is an ERC-20
+implementation. 
+
+#. Write a rule expressing the integrity of the :solidity:`transfer` function,
+   i.e. that the balances of the sender and of the recipient are updated correctly.
+#. Run the Prover, and identify the bug using the counter example.
