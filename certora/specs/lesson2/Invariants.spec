@@ -55,14 +55,6 @@ invariant unregisterdKeysUnused_MethodSpecific(address _user)
         }
     }
 
-
-/// @title Used keys are at most total keys - fails on `initializeOnUpgrade`
-invariant usedLessThanTotal(address _user)
-    getUserTotalKeys(_user) >= keysUsed(_user)
-    filtered {
-            f -> f.selector != sig:upgradeToAndCall(address,bytes).selector
-    }
-
 // ---- Parametric rules -------------------------------------------------------
 
 /// @title Total keys can be changed only in very specific ways
@@ -81,7 +73,9 @@ rule totalKeysAllowedChanges(address _user, method f) filtered {
             f.selector == sig:registerNodeOperator(bytes, uint64).selector &&
             e.msg.sender == _user
         ) || (
-            f.selector == sig:initializeOnUpgrade(address[], bytes[], uint64[], uint64[]).selector &&
+            f.selector == sig:initializeOnUpgrade(
+                address[], bytes[], uint64[], uint64[]
+            ).selector &&
             e.msg.sender == owner()
         ),
         "total keys allowed changes"
@@ -108,4 +102,36 @@ rule usedKeysNonDecreasing(address _user, method f) filtered {
         => postNumUsed >= preNumUsed,
         "num keys used is non-decreasing"
     );
+}
+
+
+/// @title Invariant nonZeroTotalKeysIsRegistered as a rule
+/// @notice Does not check the constructor!
+rule nonZeroTotalKeysIsRegistered_Parametric(address _user, method f) filtered {
+    f -> f.selector != sig:upgradeToAndCall(address,bytes).selector
+} {
+    require getUserTotalKeys(_user) > 0 => registered(_user);  // Pre-condition
+    
+    env e;
+    calldataarg args;
+    f(e, args);
+
+    assert getUserTotalKeys(_user) > 0 => registered(_user);  // Post-condition
+}
+
+
+/// @title A parametric rule that is verified but will never occur
+/// @notice We require a state that is not reachable.
+rule wrongParametric(address _user, method f) filtered {
+    f -> f.selector != sig:upgradeToAndCall(address,bytes).selector
+} {
+    uint64 totalPre = getUserTotalKeys(_user);
+    require totalPre > 0 && !registered(_user) => keysUsed(_user) > totalPre;
+    
+    env e;
+    calldataarg args;
+    f(e, args);
+
+    uint64 totalPost = getUserTotalKeys(_user);
+    assert totalPost > 0 && !registered(_user) => keysUsed(_user) > totalPost;
 }

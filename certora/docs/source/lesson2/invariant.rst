@@ -51,6 +51,7 @@ Fixed invariant
 NodeOperatorManager invariant
 -----------------------------
 
+
 The invariant
 ^^^^^^^^^^^^^
 This invariant says that if an operator has non-zero total keys, then it is registered.
@@ -59,9 +60,21 @@ This invariant says that if an operator has non-zero total keys, then it is regi
    :cvlobject: nonZeroTotalKeysIsRegistered
    :caption: :clink:`nonZeroTotalKeysIsRegistered</certora/specs/lesson2/Invariants.spec>`
 
-* Report: `NodeOperatorManager filtered invariant report`_.
+.. literalinclude:: ../../../confs/lesson2/Invariants.conf
+   :language: json
+   :emphasize-lines: 12-13
+   :caption: :clink:`Invariants.conf</certora/confs/lesson2/Invariants.conf>`
 
-.. _filter_out_upgrade:
+* Report: `NodeOperatorManager filtered invariant report`_.
+* Two notable issues need to be explained:
+
+  #. Filtering is explained below in :ref:`filter_out_upgrade`.
+  #. Loops are explained in :ref:`loop_handling`.
+
+
+.. index::
+   single: filtered
+   :name: filter_out_upgrade
 
 On filtering
 ^^^^^^^^^^^^

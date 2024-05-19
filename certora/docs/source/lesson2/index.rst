@@ -8,9 +8,10 @@ Link to the slides: `Induction reasoning slides`_.
    :caption: Contents:
 
    invariant
+   loops
    parametric
+   inv_vs_param
    preserved
-.. inv_vs_param
    exercises
 
 .. Links
