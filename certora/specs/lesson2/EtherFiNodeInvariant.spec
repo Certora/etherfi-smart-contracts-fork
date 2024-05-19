@@ -1,0 +1,1 @@
+/* `EtherFiNode` invariant spec */
