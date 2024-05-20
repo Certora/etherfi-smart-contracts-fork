@@ -8,8 +8,8 @@ Certora training for ether.fi
 These are lecture notes for the Certora Prover training for ether.fi.
 
 * The repository containing the code for the exercises (and these notes) is
-  :clink:`Certora's fork of etherfi's smart-contracts (_certora-training_ branch) </>`.
-* We shall use ``certora-cli-beta 7.6.1`` or higher.
+  :clink:`Certora's fork of etherfi's smart-contracts (certora-training branch) </>`.
+* We shall use ``certora-cli-beta 7.6.3`` or higher.
 
 
 .. toctree::
