@@ -32,6 +32,12 @@ These are lecture notes for the Certora Prover training for ether.fi.
 Useful links
 ------------
 
+Lectures recordings
+^^^^^^^^^^^^^^^^^^^
+
+#. `First lecture recording`_, passcode: ``r5xY&4TL``
+
+
 Prover training
 ^^^^^^^^^^^^^^^
 * `Training itinerary`_
@@ -80,3 +86,5 @@ Indices and tables
 .. _Certora Prover documentation: https://docs.certora.com/
 .. _Certora Prover tutorials: Prover installation instructions
 
+.. _First lecture recording:
+   https://certora.zoom.us/rec/share/mCUGX9HiOZS3uAUJocUpyDSW-8kRIekaiG01KZEblSQzH2uFac-W5qaFFDKypBmJ.gYaCu1ZCl37iDskQ 
