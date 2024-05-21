@@ -131,6 +131,12 @@ for particular contracts.
        ]
    }
 
+.. note::
+
+    The Prover considers every contract as a *unique instance*. There cannot be several
+    instance of the same contract. This is usually convinient, but not always.
+
+
 Using Dispatcher
 ----------------
 This lets the Prover to choose which implementation to use. The main change is

@@ -10,9 +10,10 @@ Link to the slides: `Setup and Multi-contract slides`_.
    :caption: Contents:
 
    multi
+   multi_auction
+   exercises
 ..   storage
    summaries
-   exercises
 
 
 .. Links
