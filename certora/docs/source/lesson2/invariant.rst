@@ -85,7 +85,7 @@ The Prover finds a violation for the rule when calling the function
 
 #. The Prover is unable to find a target for :solidity:`target.delegatecall(data)`
    in line 202 of |ERC1967UpgradeUpgradeable.sol|.
-#. Therefore the Prover uses an over-approximation -- _havoc_. This means all storage
+#. Therefore the Prover uses an over-approximation -- *havoc*. This means all storage
    variables can be changed, see `Havoc documentation`_.
 #. Report: `NodeOperatorManager unfiltered invariant report`_.
 
