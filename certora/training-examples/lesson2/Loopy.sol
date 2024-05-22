@@ -13,22 +13,21 @@ contract Loopy {
     
     /// @notice Unroll of the loop above
     function unrolled(uint n) public pure returns (uint) {
-        require(n <= 3);  // 3 unrolls will be enough
         uint j = 0;
 
         // Start unrolling
         uint i; // i=0
-        if (i < n) {
+        if (i < n + 3) {
             j++;
 
             // Next unroll
             i ++; // i=1
-            if (i < n) {
+            if (i < n + 3) {
                 j++;
 
                 // Next unroll
                 i++; // i=2
-                if (i < n) {
+                if (i < n + 3) {
                     j++;
 
                     i++; // i=3
@@ -36,9 +35,9 @@ contract Loopy {
             }
         }
         // Require that the exit condition holds - in CVL it means _assume_ 
-        require(i >= n);
+        require(i >= n + 3);
         // Or assert that it holds (in CVL)
-        // assert i>=n;
+        // assert i >= n + 3;
         return j;
     }
 }
