@@ -37,6 +37,7 @@ Lectures recordings
 
 #. `First lecture recording`_, passcode: ``r5xY&4TL``
 #. `First office hours recording`_, passcode: ``C+*ekg4Q``
+#. `Second lecture recording`_, passcode: ``*2lY+64A``
 
 Prover training
 ^^^^^^^^^^^^^^^
@@ -91,3 +92,6 @@ Indices and tables
 
 .. _First office hours recording:
    https://certora.zoom.us/rec/share/p6w9A6ZzethrJLHfmQ_YW5HzmYDfUEe5O9-QKWaTWzMEiqRM2VRuAoTAkgVqudWT.dYvWaRcUCRjHoR4j
+
+.. _Second lecture recording:
+   https://certora.zoom.us/rec/share/U-HnX70alYa3_Tw6c5Y8WpalPVH22qbmrh_J3g00Rzk1jQIfxTj_ifhXiQcUQUci.5HgovB2P0I-0uvil
