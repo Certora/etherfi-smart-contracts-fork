@@ -1,5 +1,5 @@
 methods {
-    // Mani contract `LiquidityPool`
+    // Main contract `LiquidityPool`
     function owner() external returns (address) envfree;
     function admins(address) external returns (bool) envfree;
 
