@@ -33,3 +33,6 @@ artifacts
 # vim
 .*.swp
 .*.swo
+
+# Sphinx documentation
+certora/docs/build/
