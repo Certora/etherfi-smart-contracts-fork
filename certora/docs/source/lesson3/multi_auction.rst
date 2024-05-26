@@ -77,7 +77,6 @@ Current setup
    :emphasize-lines: 4
    :caption: :clink:`setAuctionContractAddress</src/NodeOperatorManager.sol>`
 
-
 Minimal setup
 ^^^^^^^^^^^^^
 * Setup is at
@@ -88,8 +87,6 @@ Minimal setup
 .. literalinclude:: ../../../confs/lesson3/AuctionManager_minimal_setup.conf
    :language: json
    :caption: :clink:`minimal setup</certora/confs/lesson3/AuctionManager_minimal_setup.conf>`
-
-
 
 Remaining sanity (vacuity) problem
 """"""""""""""""""""""""""""""""""

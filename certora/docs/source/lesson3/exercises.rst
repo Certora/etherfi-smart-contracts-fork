@@ -3,6 +3,13 @@ Exercises
 
 Liquidity Pool setup
 --------------------
+Complete the :solidity:`LiquidityPool` setup by finding solutions for:
+
+#. :ref:`unresolved_etherfinode_calls`.
+#. :ref:`unresolved_call_to_erc721`.
+#. :ref:`unresolved_call_to_idepositcontract`.
+
+Add the solution in :ref:`unresolved_to_eigenpodmanager` to complete the setup.
 
 
 More invariants and parametric rules

@@ -11,8 +11,9 @@ Link to the slides: `Setup and Multi-contract slides`_.
 
    multi
    multi_auction
-   exercises
    liquidity_setup
+   liquidity_linked
+   exercises
 ..   storage
    summaries
 
