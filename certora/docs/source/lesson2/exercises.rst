@@ -9,7 +9,7 @@ NodeOperatorManager exercises
    (filter out the :cvl:`upgradeToAndCall` method).
 #. The invariant you wrote fails on :cvl:`initializeOnUpgrade`. Understand the
    counter-example and fix the code appropriately.
-#. Write a parametric rule showing that :cvl:`keysUsed` can only increase by 1 for
+#. Write a parametric rule showing that :cvl:`keysUsed` can only increase by *at most* 1 for
    each function call other than :cvl:`initializeOnUpgrade`.
 #. Write a parametric rule (or rules) showing that only :cvl:`pauseContract` can
    pause a contract, and only :cvl:`unPauseContract` can end the pause.
