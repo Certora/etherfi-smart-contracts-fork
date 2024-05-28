@@ -19,6 +19,11 @@ EtherFiNode exercise
 --------------------
 This exercise is for :clink:`/src/EtherFiNode.sol`.
 
+.. tip::
+
+   This exercise is difficult and requires patience, additional invariants and
+   preserved blocks.
+
 #. In the file :clink:`/certora/specs/lesson2/EtherFiNodeInvariant.spec`, write
    an invariant stating that:
    :solidity:`associatedValidatorIndices[associatedValidatorIds[i]] == i` when

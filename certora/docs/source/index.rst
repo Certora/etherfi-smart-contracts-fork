@@ -37,10 +37,23 @@ Useful links
 Lectures recordings
 ^^^^^^^^^^^^^^^^^^^
 
-#. `First lecture recording`_, passcode: ``r5xY&4TL``
-#. `First office hours recording`_, passcode: ``C+*ekg4Q``
-#. `Second lecture recording`_, passcode: ``*2lY+64A``
-#. `Second office hours recording 24/05`_, passcode: ``m#35MW@v``
+#. `First lecture recording`_ (passcode: ``r5xY&4TL``), contents:
+
+   * :doc:`lesson1/index`
+
+#. `First office hours recording`_ (passcode: ``C+*ekg4Q``), contents:
+
+   * Reviewing :doc:`lesson1/exercises`
+   * :doc:`lesson1/vacuity`
+
+#. `Second lecture recording`_ (passcode: ``*2lY+64A``), contents:
+
+   * :doc:`lesson2/index`
+
+#. `Second office hours recording 24/05`_ (passcode: ``m#35MW@v``), contents:
+
+   * :doc:`lesson2/inv_vs_param`
+   * :doc:`lesson2/loops`
 
 Prover training
 ^^^^^^^^^^^^^^^
