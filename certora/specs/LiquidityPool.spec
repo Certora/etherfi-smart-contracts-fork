@@ -1,5 +1,9 @@
+// All rules so far:
+// https://prover.certora.com/output/80942/4d6713779ccd415c83a0923f4f825f12?anonymousKey=af9ab6b8f7511ff852458d520ddfa3d2ca78a0fb
+
 using EETH as eETH;
 using LiquidityPool as LiquidityPool;
+using WithdrawRequestNFT as WithdrawRequestNFT;
 
 use builtin rule sanity;
 
@@ -15,7 +19,6 @@ methods {
     function _.DEPRECATED_phase() external => NONDET;
     function _.DEPRECATED_exitRequestTimestamp() external => NONDET;
     function _.DEPRECATED_exitTimestamp() external => NONDET;
-    // function _.migrateVersion(uint256, IEtherFiNodesManager.ValidatorInfo memory) external => DISPATCHER(true);
     function _.migrateVersion(uint256 _validatorId, IEtherFiNodesManager.ValidatorInfo _info) external => NONDET;
     function _.updateNumExitRequests(uint16 _up, uint16 _down) external => DISPATCHER(true);
     function _.numAssociatedValidators() external => NONDET;
@@ -25,9 +28,39 @@ methods {
     function _.isRestakingEnabled() external => NONDET;
     function _.updateNumberOfAssociatedValidators(uint16 _up, uint16 _down) external => DISPATCHER(true);
     function _.validatePhaseTransition(IEtherFiNode.VALIDATOR_PHASE _currentPhase, IEtherFiNode.VALIDATOR_PHASE _newPhase) external => NONDET;
+    function _.moveFundsToManager(uint256 _amount) external => DISPATCHER(true);
+    function _.getFullWithdrawalPayouts(IEtherFiNodesManager.ValidatorInfo _info, IEtherFiNodesManager.RewardsSplit _SRsplits) external => NONDET;
+    function _.getNonExitPenalty(uint32 _tNftExitRequestTimestamp, uint32 _bNftExitRequestTimestamp) external => NONDET;
+    // function _.callEigenPod(bytes memory data) external => NONDET;  // we might want to havoc all here
+    // function _.forwardCall(address to, bytes memory data) external => NONDET;  // we might want to havoc all here
+    function _.withdrawFunds(
+        address _treasury, uint256 _treasuryAmount,
+        address _operator, uint256 _operatorAmount,
+        address _tnftHolder, uint256 _tnftAmount,
+        address _bnftHolder, uint256 _bnftAmount
+    ) external => DISPATCHER(true);
+    function _.getRewardsPayouts(uint32 _exitRequestTimestamp, IEtherFiNodesManager.RewardsSplit _splits) external => NONDET;
+    function _.numExitedValidators() external => DISPATCHER(true);
+    function _.numExitRequestsByTnft() external => DISPATCHER(true);
+    function _.claimQueuedWithdrawals(uint256 maxNumWithdrawals, bool _checkIfHasOutstandingEigenLayerWithdrawals) external => DISPATCHER(true);
+    function _.calculateTVL(
+        uint256 _beaconBalance,
+        IEtherFiNodesManager.ValidatorInfo _info,
+        IEtherFiNodesManager.RewardsSplit _SRsplits,
+        bool _onlyWithdrawable
+    ) external => NONDET;
+    function _.queueRestakedWithdrawal() external => DISPATCHER(true);
+    function _.updateNumExitedValidators(uint16 _up, uint16 _down) external => DISPATCHER(true);
+    function _.processNodeExit() external => DISPATCHER(true);
+
+    // test/eigenlayer-mocks/DelayedWithdrawalRouterMock.sol
+    function _.claimDelayedWithdrawals(address recipient, uint256 maxNumberOfWithdrawalsToClaim) external => NONDET;  // we might want to havoc all here
+    function _.getClaimableUserDelayedWithdrawals(address user) external => NONDET;
+    function _.withdrawalDelayBlocks() external => NONDET;
+    function _.getUserDelayedWithdrawals(address user) external => NONDET;
 
     // src/StakingManager.sol
-    function _.instantiateEtherFiNode(bool _createEigenPod) external => NONDET;  // we might want to havoc all here
+    // function _.instantiateEtherFiNode(bool _createEigenPod) external => NONDET;  // we might want to havoc all here
     
     // depositContractEth2
     function _.get_deposit_root() external => NONDET;
@@ -36,8 +69,12 @@ methods {
     function _.getPod(address podOwner) external => NONDET;
     function _.createPod() external => NONDET;
 
+    // src/eigenlayer-interfaces/IEigenPod.sol
+    // function _.withdrawBeforeRestaking() external => NONDET;  // we might want to havoc all here
+
     // src/interfaces/IEtherFiNodesManager.sol
     function _.eigenPodManager() external => NONDET;
+    function _.delayedWithdrawalRouter() external => NONDET;
 
     // src/NodeOperatorManager.sol
     // function isEligibleToRunValidatorsForSourceOfFund(address _operator, ILiquidityPool.SourceOfFunds _source) external view returns (bool approved) 
@@ -50,10 +87,25 @@ methods {
         bytes memory data
     ) internal returns (bool) => NONDET;
 }
+
 // rule ideas:
 
 // 1. One that requested a withdrawal successfully, can withdraw his funds
 //    LiquidityPool.requestWithdraw(address recipient, uint256 amount) -> WithdrawRequestNFT.claimWithdraw(uint256 tokenId)
+rule oneCanWithdrawHisFunds() {
+    env e1; env e2;
+    address recipient; uint256 amount;
+    uint256 requestId = LiquidityPool.requestWithdraw(e1, recipient, amount);
+
+    uint256 balanceOfUser_Before = nativeBalances[e2.msg.sender];
+    WithdrawRequestNFT.claimWithdraw@withrevert(e2, requestId);
+    bool reverted = lastReverted;
+    uint256 balanceOfUser_After = nativeBalances[e2.msg.sender];
+
+    assert e2.msg.sender == recipient;  // only the recipient can claim the withdraw
+    assert e2.msg.value == 0 => !reverted;  // unless the user send ETH the call should not fail
+    assert !reverted => balanceOfUser_After > balanceOfUser_Before;  // one gets some ETH
+}
 
 // 2a. Depositing ETH increases the getTotalPooledEther()
 // 2b. One cannot get zero shares for successful deposit()
@@ -72,7 +124,6 @@ rule depositIntegrity() {
 }
 
 // eETH.totalShares() and LiquidityPool.getTotalPooledEther() are correlated
-// Running - https://prover.certora.com/output/80942/2f2249c7db39465a9b4766dc8c6ea5a0?anonymousKey=377fee6010e423a3471f23395b9182705a7a84d3
 rule totalSharesAndTotalPooledEtherCorrelation(method f)
     filtered { f -> f.contract == currentContract && !f.isView} {
     env e; calldataarg args;
@@ -92,9 +143,6 @@ rule totalSharesAndTotalPooledEtherCorrelation(method f)
 
 
 // 6. The more msg.value one deposits, the more shares he gets
-// failed - https://prover.certora.com/output/80942/b562bf4a407245dc8bc0702872d4b983?anonymousKey=129c043bf399da67995d48126e605de946e9c933
-// failed - https://prover.certora.com/output/80942/a254fb8858b247b380e93211f26f428d?anonymousKey=548464a7a47afe6ece046e63353a8480df84e5dc
-// 
 rule depositMoreGetMore() {
     env e1; env e2;
     storage initState = lastStorage;
@@ -115,8 +163,6 @@ rule depositMoreGetMore() {
 
 
 // 3. What are all the functions that can be run when the contract is paused
-// bad? - https://prover.certora.com/output/80942/bc4f398231404337a9f0250986b2e7d7?anonymousKey=92ba99bddf1c1b74c0365620cf91ce9ea6fc370a
-// fixed? - https://prover.certora.com/output/80942/31b3b07eb5f44ddda1c76195ac348fb0?anonymousKey=2b44c6bdb34375e10998d5f802cdbd3b07f3b898
 // filtered - https://prover.certora.com/output/80942/bcfa0cac53814e3c9077905696d3a8b1?anonymousKey=f98a0edf2a0a1405853e24d8d11b2fe6ac382c2b
 rule whoCanRunWhenPaused(method f)
     filtered { f -> f.contract == currentContract && !f.isView} {
