@@ -36,18 +36,6 @@ invariant mappingLimits()
         }
     }
 
-invariant mappingLimits_spurious()
-    forall uint256 _id. (
-        (lenIds() > 0 => indexFromId(_id) < lenIds()) &&
-        (lenIds() == 0 => indexFromId(_id) == 0)
-    )
-    {
-        preserved {
-            require lenIds() <= 2^10;
-            requireInvariant preserveMapping();
-        }
-    }
-
 
 /// @title Mapping is left inverse to array
 invariant preservingIndexes()
