@@ -50,10 +50,18 @@ Lectures recordings
 
    * :doc:`lesson2/index`
 
-#. `Second office hours recording 24/05`_ (passcode: ``m#35MW@v``), contents:
+#. `Recording 24/05`_ (passcode: ``m#35MW@v``), contents:
 
    * :doc:`lesson2/inv_vs_param`
    * :doc:`lesson2/loops`
+
+#. `Recording 28/05`_ (passcode: ``aU#6LDsH``), contents:
+
+   * Lesson 2 :doc:`lesson3/exercises`
+
+#. `Lecture recording 29/05`_ (passcode: ``w4+dtUT*``), contents:
+
+   * Lesson 4 :doc:`lesson4/index`
 
 Prover training
 ^^^^^^^^^^^^^^^
@@ -112,5 +120,11 @@ Indices and tables
 .. _Second lecture recording:
    https://certora.zoom.us/rec/share/U-HnX70alYa3_Tw6c5Y8WpalPVH22qbmrh_J3g00Rzk1jQIfxTj_ifhXiQcUQUci.5HgovB2P0I-0uvil
 
-.. _Second office hours recording 24/05:
-   https://certora.zoom.us/rec/share/FlHNR2n2Ew-krSkKwcPd5WYcMeQ1l2_PO_79tqFrlI0zD0amLcOmgPiuImKE7UYn.OX6_o4iSVepIoFT_ 
+.. _Recording 24/05:
+   https://certora.zoom.us/rec/share/FlHNR2n2Ew-krSkKwcPd5WYcMeQ1l2_PO_79tqFrlI0zD0amLcOmgPiuImKE7UYn.OX6_o4iSVepIoFT_
+
+.. _Recording 28/05:
+   https://certora.zoom.us/rec/share/nLib62-k7HNZjvrlULlqntRBfSoQ-l8yFuDg2sDZMmQ3oEVR-3zMJPCZeWaC8B6C.4sf8ZdPduxUyno0x
+
+.. _Lecture recording 29/05:
+   https://certora.zoom.us/rec/share/jm669MBOsimi-McB7zQTRvpZBO9bI9A8hsTRDlumCVulDH2C1CKI6p49yo281ity.EWWEHISjfuZHNoha 
