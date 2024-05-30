@@ -19,7 +19,7 @@ Example
 
 .. cvlinclude:: ../../../specs/lesson1/Examples.spec
    :cvlobject: revertRule
-   :caption: :clink:`From Examples.spec</certora.specs/lesson1/Examples.spec>`
+   :caption: :clink:`From Examples.spec</certora/specs/lesson1/Examples.spec>`
 
 
 .. index::
