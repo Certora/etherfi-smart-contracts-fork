@@ -3,8 +3,6 @@ Setup and multi-contract
 
 Link to the slides: `Setup and Multi-contract slides`_.
 
-.. todo:: Harness
-
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
@@ -14,8 +12,6 @@ Link to the slides: `Setup and Multi-contract slides`_.
    liquidity_setup
    liquidity_linked
    exercises
-..   storage
-   summaries
 
 
 .. Links
