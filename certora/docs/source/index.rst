@@ -63,6 +63,8 @@ Lectures recordings
 
    * Lesson 4 :doc:`lesson4/index`
 
+#. `Recording 30/05`_ (passcode: ``i.5fK*1W``), discussing examples.
+
 Prover training
 ^^^^^^^^^^^^^^^
 * `Training itinerary`_
@@ -127,4 +129,7 @@ Indices and tables
    https://certora.zoom.us/rec/share/nLib62-k7HNZjvrlULlqntRBfSoQ-l8yFuDg2sDZMmQ3oEVR-3zMJPCZeWaC8B6C.4sf8ZdPduxUyno0x
 
 .. _Lecture recording 29/05:
-   https://certora.zoom.us/rec/share/jm669MBOsimi-McB7zQTRvpZBO9bI9A8hsTRDlumCVulDH2C1CKI6p49yo281ity.EWWEHISjfuZHNoha 
+   https://certora.zoom.us/rec/share/jm669MBOsimi-McB7zQTRvpZBO9bI9A8hsTRDlumCVulDH2C1CKI6p49yo281ity.EWWEHISjfuZHNoha
+
+.. _Recording 30/05:
+   https://certora.zoom.us/rec/share/mzBGpXBKl_BopwuPw9_k--AiCOoZfGXAewawu54t9S2JCqjpVWT26UunOIkDHwxw.ISwyc8A3gN5UyOIJ
