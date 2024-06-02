@@ -9,6 +9,7 @@ Advanced topics
    sum_pattern
    reentrancy
    storage
+   exercises
 
    
 .. Links
