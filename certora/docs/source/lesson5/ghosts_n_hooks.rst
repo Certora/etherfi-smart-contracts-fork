@@ -54,7 +54,7 @@ Ghost variables
 Example
 ^^^^^^^
 Here is a very basic example, using the
-:clink:`VotingFixed.sol</certora/training-examples/lesson1/solidity_intro/VotingFixed.sol>`
+:clink:`Voting</certora/training-examples/lesson1/solidity_intro/Voting.sol>`
 contract.
 
 .. literalinclude:: ../../../training-examples/lesson1/solidity_intro/SimpleGhost.spec
