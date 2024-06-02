@@ -21,6 +21,7 @@ These are lecture notes for the Certora Prover training for ether.fi.
    lesson2/index
    lesson3/index
    lesson4/index
+   lesson5/index
 
 
 .. The following is a trick to get the general index on the side bar.
