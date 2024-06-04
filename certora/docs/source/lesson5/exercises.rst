@@ -42,6 +42,10 @@ Side entrance
   is a contract that can receive the loan and "randomly" do various actions.
 * **Exercise.** Write a :cvl:`satisfy` rule that exposes the vulnerability.
 
+.. tip::
+
+   Use ``optimistic_fallback`` and ``contract_recursion_limit`` in the config.
+
 .. dropdown:: SideEntranceLenderPool
 
    .. literalinclude:: ../../../training-examples/lesson5/side_entrance/SideEntranceLenderPool.sol
