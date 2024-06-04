@@ -1,6 +1,8 @@
 A voting simple rule
 ====================
 
+.. _simple_voting_contract_example:
+
 The voting contract
 -------------------
 A minimalist voting contract.

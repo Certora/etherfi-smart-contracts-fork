@@ -1,3 +1,5 @@
+.. _multi_contract_exchange:
+
 Multi contract setup
 ====================
 
