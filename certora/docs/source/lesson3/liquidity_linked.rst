@@ -118,7 +118,7 @@ Simple solution
    * Use dispatcher on all non-view :solidity:`EtherFiNode` functions.
    * Spec realizing this solution:
      :clink:`linked_node.spec</certora/specs/liquidity/linked_node.spec>`.
-   * Configuration: `linked_node.conf<//certora/confs/liquidity/linked_node.conf>`.
+   * Configuration: :clink:`linked_node.conf<//certora/confs/liquidity/linked_node.conf>`.
    * Report: `using a single EtherFiNode report`_.
 
 Better solution
