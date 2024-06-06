@@ -15,6 +15,7 @@ Summaries
 
    summary_types
    method_entries
+   dispatch
 
 
 .. Links
