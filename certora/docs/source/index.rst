@@ -59,16 +59,23 @@ Lectures recordings
 
 #. `Recording 28/05`_ (passcode: ``aU#6LDsH``), contents:
 
-   * Lesson 2 :doc:`lesson3/exercises`
+   * Lesson 2 :doc:`lesson2/exercises`
 
 #. `Lecture recording 29/05`_ (passcode: ``w4+dtUT*``), contents:
 
    * Lesson 4 :doc:`lesson4/index`
 
-#. `Recording 30/05`_ (passcode: ``i.5fK*1W``), discussing examples.
+#. `Recording 30/05`_ (passcode: ``i.5fK*1W``), contents:
 
-#. `Recording 04/06`_ (passcode: ``.N5Qvx%5``), discussing :solidity:`LiquidityPool`
-   setup.
+   * Examples of Lesson 4 -- properties of the :solidity:`LiquidityPool`.
+
+#. `Recording 04/06`_ (passcode: ``.N5Qvx%5``), contents: 
+
+   * The :solidity:`LiquidityPool` setup.
+
+#. `Recording 05/06`_ (passcode: ``F1PW.Nu%``), contents:
+
+   * Lesson 5 :doc:`lesson5/index`.
 
 Prover training
 ^^^^^^^^^^^^^^^
@@ -141,3 +148,6 @@ Indices and tables
 
 .. _Recording 04/06:
    https://certora.zoom.us/rec/share/mwsmK9r5TL0ByNBt7LpcTIS6AZW-U-WPSzZ9slgBASNvbKcopeqqzVUuQY4-GMHv.bqJ9QlFjoWCLcGvS
+
+.. _Recording 05/06:
+   https://certora.zoom.us/rec/share/NcufqTINbcFnUY4XmS7nvtdqb2JFDb-uAwbLUvO1JjfKfsfVdG0GkbYWYvoCTcad.SXw3RVJ9dc_arEZ1

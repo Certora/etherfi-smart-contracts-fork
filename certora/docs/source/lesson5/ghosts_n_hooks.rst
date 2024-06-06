@@ -60,7 +60,7 @@ contract.
 .. literalinclude:: ../../../training-examples/lesson1/solidity_intro/SimpleGhost.spec
    :language: cvl
    :lines: 4-
-   :caption: :clink:`SimpleHook.spec</certora/training-examples/lesson1/solidity_intro/SimpleGhost.spec>`
+   :caption: :clink:`SimpleGhost.spec</certora/training-examples/lesson1/solidity_intro/SimpleGhost.spec>`
 
 
 .. Links
