@@ -158,4 +158,3 @@ Indices and tables
 
 .. _Recording 60/60:
    https://certora.zoom.us/rec/share/vmvhpghzwZ173EjybcWlgl46y3etF545mJrDOuk6roQ_a_27pR11JEC2tbLLlKLu.RFQUKybfx-pcQI1j
-Passcode: Y#+a=6dd
