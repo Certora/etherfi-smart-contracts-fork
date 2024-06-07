@@ -16,6 +16,7 @@ Summaries
    summary_types
    method_entries
    dispatch
+   exercises
 
 
 .. Links
