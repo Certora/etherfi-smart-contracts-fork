@@ -81,6 +81,10 @@ Lectures recordings
 
    * Hooks and strings from Lesson 5 :doc:`lesson5/exercises`.
 
+#. `Recording 07/06`_ (passcode: ``*@9Nav=1``), contents:
+
+   * Lesson 6 :doc:`lesson6/index`.
+
 Prover training
 ^^^^^^^^^^^^^^^
 * `Training itinerary`_
@@ -158,3 +162,6 @@ Indices and tables
 
 .. _Recording 06/06:
    https://certora.zoom.us/rec/share/vmvhpghzwZ173EjybcWlgl46y3etF545mJrDOuk6roQ_a_27pR11JEC2tbLLlKLu.RFQUKybfx-pcQI1j
+
+.. _Recording 07/06:
+   https://certora.zoom.us/rec/share/RFSUZ0OBYMDS_Un38XbuHylsfbkiX8SbE0qRwx5cuLnlb6mPXs_ScuoUTk4IkWkt.cmhbf0t7TOPy5PTh
