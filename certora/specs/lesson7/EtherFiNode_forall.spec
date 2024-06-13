@@ -66,3 +66,11 @@ invariant preserveMapping()
             requireInvariant preservingIndexes();
         }
     }
+
+
+rule checkInitialize() {
+    env e;
+    address _etherFiNodesManager;
+    initialize(e, _etherFiNodesManager);
+    assert false; 
+}
