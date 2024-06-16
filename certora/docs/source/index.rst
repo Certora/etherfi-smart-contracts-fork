@@ -90,6 +90,10 @@ Lectures recordings
 
    * Lesson 6 :doc:`lesson6/exercises`.
 
+#. `Recording 13/06`_ (passcode: ``57gJWUX$``), contents:
+
+   * Lesson 7 :doc:`lesson7/index`.
+
 Prover training
 ^^^^^^^^^^^^^^^
 * `Training itinerary`_
@@ -173,3 +177,6 @@ Indices and tables
 
 .. _Recording 10/06:
    https://certora.zoom.us/rec/share/unp6aBFnEw8pRy4RhuISpYOki77TgIFSWLCmiwz_qKurZa0fSff9e5XghtpGJXvS.E1XDVGbqnSqxOgk7
+
+.. _Recording 13/06:
+   https://certora.zoom.us/rec/share/DAtyNeN8uZqEBtRgCPP8J8T_ZVVyDNjw4uk5Q9iPcX5DkYsFPcWtKCobNCzNl1tz.ghcPxdpDZEiTm6im
