@@ -18,6 +18,10 @@ ghost uint256 _totalPooledEther {
     init_state axiom _totalPooledEther ==0;
 }
 
+function getEthAmountLockedForWithdrawalCVL() returns uint128 {
+    return _ethAmountLockedForWithdrawal;
+}
+
 function getTotalPooledEtherCVL() returns uint256 {
     return _totalPooledEther;
 }
@@ -39,7 +43,7 @@ function amountForShareCVL(uint256 shares) returns uint256 {
     return require_uint256((shares * getTotalPooledEtherCVL()) / totalShares);
 }
 
-function sharesForWithdrawalAmount(uint256 amount) returns uint256 {
+function sharesForWithdrawalAmountCVL(uint256 amount) returns uint256 {
     uint256 totalPooledEther = getTotalPooledEtherCVL();
     if (totalPooledEther == 0) return 0;
     /// We assume no overflow
@@ -62,22 +66,29 @@ function getTotalEtherClaimOfCVL(address user) returns uint256 {
 
 function withdrawCVL(address caller, address recipient, uint256 amount) returns uint256 {
     assert caller == WithdrawRequestNFT;
+    require !withdrawRevertCondition(amount);
 
-    uint256 share = sharesForWithdrawalAmount(amount);
-    //if (totalValueInLp < _amount ||
-    // (msg.sender == address(withdrawRequestNFT) && ethAmountLockedForWithdrawal < _amount)
-    // || eETH.balanceOf(WithdrawRequestNFT) < _amount) revert InsufficientLiquidity()
-    require amount <= max_uint128 && amount > 0 && share > 0;
-    _totalPooledEther = require_uint128(_totalPooledEther - amount);
-    reduceEthAmount(require_uint128(amount));
+    uint256 share = sharesForWithdrawalAmountCVL(amount);
+    require share > 0;
+
+    _totalPooledEther = assert_uint128(_totalPooledEther - amount);
+    reduceEthAmount(assert_uint128(amount));
 
     env e1;
-    require e1.msg.sender == currentContract.liquidityPool;
+    require e1.msg.sender == Pool;
     eETH.burnShares(e1, e1.msg.sender, share);
 
     env e2;
-    require e2.msg.sender == currentContract.liquidityPool;
+    require e2.msg.sender == Pool;
     FallbackCaller.callFallback(e2, recipient, amount);
 
     return share;
+}
+
+function withdrawRevertCondition(uint256 amount) returns bool {
+    //if (totalValueInLp < _amount ||
+    // (msg.sender == address(withdrawRequestNFT) && ethAmountLockedForWithdrawal < _amount)
+    // || eETH.balanceOf(WithdrawRequestNFT) < _amount) revert InsufficientLiquidity()
+    return amount > max_uint128 || amount == 0 ||
+        _totalPooledEther - amount < 0 || _totalPooledEther - amount > max_uint128; 
 }

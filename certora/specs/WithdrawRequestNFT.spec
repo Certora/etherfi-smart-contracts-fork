@@ -13,6 +13,10 @@ methods {
     function _.proxiableUUID() external => PER_CALLEE_CONSTANT;
 }
 
+persistent ghost address Pool {
+    axiom Pool == currentContract.liquidityPool;
+}
+
 definition isRequestWithdraw(method f) returns bool = 
     f.selector == sig:requestWithdraw(uint96,uint96,address,uint256).selector;
 
