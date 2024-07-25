@@ -16,6 +16,9 @@ methods {
 
     function NodeOperatorManager.getUserTotalKeys(address) external returns (uint64) envfree;
     function NodeOperatorManager.getNumKeysRemaining(address) external returns (uint64) envfree;
+
+
+    function _.upgradeToAndCall(address,bytes) external => NONDET;
 }
 
 /// Is persistent because it mirrors the PoolManager storage.
@@ -23,7 +26,7 @@ persistent ghost mapping(uint256 => uint256) bids_amount {
     init_state axiom forall uint256 bid_id . bids_amount[bid_id] == 0;
 }
 
-ghost mathint sum_of_bids{
+ghost mathint sum_of_bids {
     init_state axiom sum_of_bids == 0;
 }
 
@@ -31,19 +34,15 @@ ghost mathint sum_of_active_bids {
     init_state axiom sum_of_active_bids == 0;
 }
 
-ghost mathint sum_of_all_bids_amounts;
+ghost mathint sum_of_all_bids_amounts {
+    init_state axiom sum_of_all_bids_amounts == 0;
+}
 
-ghost mathint sum_of_all_active_bids_amounts;
+ghost mathint sum_of_all_active_bids_amounts {
+    init_state axiom sum_of_all_active_bids_amounts == 0;
+}
 
 ghost uint256 latest_bid_id;
-
-// ghost mapping(uint256 => uint64) bids_keys_indexes {
-//     init_state axiom forall uint256 bid_id . bids_amount[bid_id] == 0;
-// }
-
-// ghost mapping(address => uint256[]) user_bid_ids {
-//     init_state axiom forall address user . forall uint256 index . user_bid_ids[user][index] == 0;
-//     }
 
 ghost mapping(uint256 => bool) bids_is_active {
     init_state axiom forall uint256 bid_id . bids_is_active[bid_id] == false;
@@ -55,25 +54,16 @@ ghost mapping(address => uint256) user_last_bid_id_index {
 
 hook Sstore bids[KEY uint256 bid_id].amount uint256 new_amount (uint256 old_amount) {
     bids_amount[bid_id] = new_amount;
-
-    // if (old_amount == 0) { // might not be necesary if bid amount is immutable.
     sum_of_bids = sum_of_bids + 1;
     sum_of_all_bids_amounts = sum_of_all_bids_amounts + new_amount;
-
-    // user_bid_ids[user_last_bid_id_index[user]] = bid_id;
-    // user_last_bid_id_index[user] = user_last_bid_id_index[user] + 1;
 }
 
 hook Sload uint256 _amount bids[KEY uint256 bid_id].amount {
     require _amount == bids_amount[bid_id];
 }
 
-// ghost mapping(unit256 => bool) was_bid_activated {
-//     init_state axiom forall uint256 bid_id . was_bid_activated[bid_id] == false;
-// }
-
 hook Sstore bids[KEY uint256 bid_id].isActive bool new_acitive (bool old_active) {
-    if (new_acitive && !old_active) {
+    if (new_acitive) {
         sum_of_active_bids = sum_of_active_bids + 1;
         sum_of_all_active_bids_amounts = sum_of_all_active_bids_amounts + bids_amount[bid_id];
     } else if (!new_acitive && old_active) {
@@ -87,49 +77,65 @@ hook Sload bool _isActive bids[KEY uint256 bid_id].isActive {
     require _isActive == bids_is_active[bid_id];
 }
 
-// numberOfActiveBids equals the sum of active bids.
-invariant numberOfActiveBidsCorrect() 
-    sum_of_active_bids == to_mathint(numberOfActiveBids());
-
-// numberOfBids equals the sum of all bids.
-invariant numberOfBidsEqTheSumOfAllBids() 
-    sum_of_bids == to_mathint(numberOfBids());
-
-// the sum of all used keys equals num of bids.
-// invariant numOfAllUsedKeysEqNumOfBids() {}
-
-// rule bidderPubKeyIndexIsUniqePerUser() {}
-
-// rule bidsAmountImmutable() {}
-
-
-/// @title Functions filtered out since they use `delegatecall`
+// Functions filtered out since they use `delegatecall`.
 definition isFilteredFunc(method f) returns bool = (
     f.selector == sig:upgradeToAndCall(address, bytes).selector
 );
 
+// numberOfActiveBids equals the sum of active bids.
+invariant numberOfActiveBidsCorrect() 
+    sum_of_active_bids == to_mathint(numberOfActiveBids())
+    filtered {f -> !isFilteredFunc(f)}
+
+// numberOfBids equals the sum of all bids.
+invariant numberOfBidsEqTheSumOfAllBids() 
+    sum_of_bids == to_mathint(numberOfBids())
+    filtered {f -> !isFilteredFunc(f)}
+
+// solvency invariant - contract should hold atleast sumOfAllActiveBidAmounts amount of eth.
+invariant activeBidsSolvency()
+    to_mathint(nativeBalances[currentContract]) >= sum_of_all_active_bids_amounts
+    filtered {f -> !isFilteredFunc(f)}
+
+// the sum of all used keys equals num of bids.
+// invariant numOfAllUsedKeysEqNumOfBids() {}
+
+// chack for all bids to see if the key index is unique per user.
+// rule bidderPubKeyIndexIsUniqePerUser() {}
+
+rule bidImmutability(method f, uint256 bid_id) filtered {f -> !isFilteredFunc(f)} {
+    env e;
+    calldataarg args;
+
+    require bid_id < numberOfBids();
+
+    uint256 AmountBefore;
+    uint64 bidderPubKeyIndexBefore;
+    address bidderAddressBefore;
+    uint256 AmountAfter;
+    uint64 bidderPubKeyIndexAfter;
+    address bidderAddressAfter;
+
+    AmountBefore, bidderPubKeyIndexBefore, bidderAddressBefore, _ = bids(bid_id);
+
+    f(e, args);
+
+    AmountAfter, bidderPubKeyIndexAfter, bidderAddressAfter, _ = bids(bid_id);
+
+    assert AmountBefore == AmountAfter, "bid amount was changed";
+    assert bidderPubKeyIndexBefore == bidderPubKeyIndexAfter, "bidder key index was changed";
+    assert bidderAddressBefore == bidderAddressAfter, "bidder address was changed";
+}
 
 /// @title The contact is set as initialized in the constructor -- seems a bug?
 invariant alwaysInitialized()
-    currentContract._initialized > 0
+    currentContract._initialized == max_uint8
     filtered {f -> !isFilteredFunc(f)}
-
-// rule manager_initialized_once() {
-//     env e;
-//     calldataarg args;
-
-//     bool isInitializedBefore = currentContract._initialized;
-
-//     // call initialize:
-
-//     assert !isInitializedBefore && currentContract._initialized;
-// }
 
 rule integrityOfCreateBid(uint256 _bidSize, uint256 _bidAmountPerBid) {
     env e;
     uint256 newBidId;
     mathint msgValue = e.msg.value;
-    uint256[] bidArray;
     mathint numberOfBidsBefore = numberOfBids();
     mathint numberOfActiveBidsBefore = numberOfActiveBids();
     mathint bidIndexInBatch = newBidId - numberOfBidsBefore;
@@ -144,7 +150,7 @@ rule integrityOfCreateBid(uint256 _bidSize, uint256 _bidAmountPerBid) {
     address bidderAddress;
     bool isActive;
 
-        bidArray = createBid(e, _bidSize, _bidAmountPerBid);
+        createBid(e, _bidSize, _bidAmountPerBid);
 
     // get one of the new bids:
     amount, bidderPubKeyIndex, bidderAddress, isActive = bids(e, newBidId);
