@@ -76,7 +76,7 @@ function withdrawCVL(address caller, address recipient, uint256 amount) returns 
 
     env e1;
     require e1.msg.sender == Pool;
-    eETH.burnShares(e1, e1.msg.sender, share);
+    eETH.burnShares(e1, caller, share);
 
     env e2;
     require e2.msg.sender == Pool;

@@ -54,11 +54,19 @@ rule Equivalence_withdraw(address recipient, uint256 amount) {
     bool reverted_cond = withdrawRevertCondition(amount);
 
     withdrawCVL(e.msg.sender, recipient, amount);
+    uint128 ethlockedA = getEthAmountLockedForWithdrawalCVL();
+    uint256 totalPooledA = getTotalPooledEtherCVL();
+    storage stateA = lastStorage;
 
-    withdraw(e, recipient, amount);
+    withdraw(e, recipient, amount) at initState;
+    uint128 ethlockedB = Pool.ethAmountLockedForWithdrawal();
+    uint256 totalPooledB = Pool.getTotalPooledEther();
+    storage stateB = lastStorage;
 
     assert !reverted_cond;
-    assert isEquivalentState();
+    assert ethlockedA == ethlockedB;
+    assert totalPooledA == totalPooledB;
+    assert stateA[eETH] == stateB[eETH];
 }
 
 rule Equivalence_reduceEthAmount(uint128 amount) {
