@@ -22,9 +22,9 @@ import "./interfaces/ILiquidityPool.sol";
 import "./interfaces/IEtherFiAdmin.sol";
 import "./interfaces/IAuctionManager.sol";
 import "./interfaces/ILiquifier.sol";
-import "forge-std/console.sol";
+import "./interfaces/IPausable.sol";
 
-contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, ILiquidityPool {
+contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, ILiquidityPool, IPausable {
     //--------------------------------------------------------------------------------------
     //---------------------------------  STATE-VARIABLES  ----------------------------------
     //--------------------------------------------------------------------------------------
@@ -70,6 +70,8 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
 
     bool private isLpBnftHolder;
 
+    RoleRegistry public roleRegistry;
+
     //--------------------------------------------------------------------------------------
     //-------------------------------------  EVENTS  ---------------------------------------
     //--------------------------------------------------------------------------------------
@@ -95,6 +97,7 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
     error DataNotSet();
     error InsufficientLiquidity();
     error SendFail();
+    error IncorrectRole();
 
     //--------------------------------------------------------------------------------------
     //----------------------------  STATE-CHANGING FUNCTIONS  ------------------------------
@@ -136,6 +139,12 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
 
         auctionManager = IAuctionManager(_auctionManager);
         liquifier = ILiquifier(_liquifier);
+    }
+
+    function initializeV2dot5(address _roleRegistry) external onlyOwner {
+        require(address(roleRegistry) == address(0x00), "already initialized");
+        
+        roleRegistry = RoleRegistry(_roleRegistry);
     }
 
     // Used by eETH staking flow
@@ -342,6 +351,12 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
         require(_validatorIds.length == _registerValidatorDepositData.length && _validatorIds.length == _depositDataRootApproval.length && _validatorIds.length == _signaturesForApprovalDeposit.length, "lengths differ");
         
         numPendingDeposits -= uint32(_validatorIds.length);
+
+        // If the LP is the B-nft holder, the 1 ether (for each validator) is taken from the LP
+        // otherwise, the 1 ether is taken from the B-nft holder's separate deposit. Thus, we don't need to update the accounting
+        uint256 outboundEthAmountFromLp = isLpBnftHolder ? 1 ether * _validatorIds.length : 0;
+        _accountForEthSentOut(outboundEthAmountFromLp);
+
         stakingManager.batchRegisterValidators{value: 1 ether * _validatorIds.length}(_depositRoot, _validatorIds, _bnftRecipient, address(this), _registerValidatorDepositData, msg.sender);
         
         for(uint256 i; i < _validatorIds.length; i++) {
@@ -371,8 +386,12 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
             emit ValidatorApproved(_validatorIds[i]);
         }
 
-        totalValueOutOfLp += uint128(30 ether * _validatorIds.length);
-        totalValueInLp -= uint128(30 ether * _validatorIds.length);
+        // As the LP is the T-NFT holder, the 30 ETH is taken from the LP for each validator
+        // 
+        // If the LP is the B-NT holder, the 1 ether for each validator is taken from the LP as well
+        // otherwise, the 1 ether is taken from the B-nft holder's separate deposit
+        uint256 outboundEthAmountFromLp = isLpBnftHolder ? 31 ether * _validatorIds.length : 30 ether * _validatorIds.length;
+        _accountForEthSentOut(outboundEthAmountFromLp);
 
         stakingManager.batchApproveRegistration{value: 31 ether * _validatorIds.length}(_validatorIds, _pubKey, _signature, depositDataRootApproval);
     }
@@ -394,7 +413,6 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
         for (uint256 i = 0; i < _validatorIds.length; i++) {
             if(nodesManager.phase(_validatorIds[i]) == IEtherFiNode.VALIDATOR_PHASE.WAITING_FOR_APPROVAL) {
                 if (!isLpBnftHolder) returnAmount += 1 ether;
-                else totalValueInLp -= 1 ether;
                 emit ValidatorRegistrationCanceled(_validatorIds[i]);
             } else {
                 if (!isLpBnftHolder) returnAmount += 2 ether;
@@ -473,14 +491,22 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
         admins[_address] = _isAdmin;
     }
 
-    function pauseContract() external onlyAdmin {
+    // Pauses the contract
+    function pauseContract() external {
+        if (!roleRegistry.hasRole(roleRegistry.PROTOCOL_PAUSER(), msg.sender)) revert IncorrectRole();
+        if (paused) revert("Pausable: already paused");
+        
         paused = true;
-        emit Paused(_msgSender());
+        emit Paused(msg.sender);
     }
 
-    function unPauseContract() external onlyAdmin {
+    // Unpauses the contract
+    function unPauseContract() external {
+        if (!roleRegistry.hasRole(roleRegistry.PROTOCOL_UNPAUSER(), msg.sender)) revert IncorrectRole();
+        if (!paused) revert("Pausable: not paused");
+
         paused = false;
-        emit Unpaused(_msgSender());
+        emit Unpaused(msg.sender);
     }
 
     // Deprecated, just existing not to touch EtherFiAdmin contract
@@ -510,6 +536,17 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
         if (!(msg.sender == address(etherFiAdminContract) || msg.sender == address(withdrawRequestNFT))) revert IncorrectCaller();
 
         ethAmountLockedForWithdrawal += _amount;
+    }
+
+    // This function can't change the TVL
+    // but used only to correct the errors in tracking {totalValueOutOfLp} and {totalValueInLp}
+    function updateTvlSplits(int128 _diffTotalValueOutOfLp, int128 _diffTotalValueInLp) external onlyOwner {
+        uint256 tvl = getTotalPooledEther();
+
+        totalValueOutOfLp = uint128(int128(totalValueOutOfLp) + _diffTotalValueOutOfLp);
+        totalValueInLp = uint128(int128(totalValueInLp) + _diffTotalValueInLp);
+
+        if(tvl != getTotalPooledEther()) revert();
     }
 
     function reduceEthAmountLockedForWithdrawal(uint128 _amount) external {
@@ -550,6 +587,11 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
         uint256 balanace = address(this).balance;
         (bool sent, ) = _recipient.call{value: _amount}("");
         require(sent && address(this).balance == balanace - _amount, "SendFail");
+    }
+
+    function _accountForEthSentOut(uint256 _amount) internal {
+        totalValueOutOfLp += uint128(_amount);
+        totalValueInLp -= uint128(_amount);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}

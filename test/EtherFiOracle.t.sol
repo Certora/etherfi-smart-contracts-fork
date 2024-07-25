@@ -245,7 +245,7 @@ contract EtherFiOracleTest is TestSetup {
 
         vm.startPrank(alice);
         etherFiOracleInstance.submitReport(report);
-        etherFiAdminInstance.executeTasks(report, emptyBytes, emptyBytes);
+        etherFiAdminInstance.executeTasks(report);
         vm.stopPrank();
 
         (slotFrom, slotTo, blockFrom) = etherFiOracleInstance.blockStampForNextReport();
@@ -270,7 +270,7 @@ contract EtherFiOracleTest is TestSetup {
 
         vm.startPrank(alice);
         etherFiOracleInstance.submitReport(report);
-        etherFiAdminInstance.executeTasks(report, emptyBytes, emptyBytes);
+        etherFiAdminInstance.executeTasks(report);
         vm.stopPrank();
 
         (slotFrom, slotTo, blockFrom) = etherFiOracleInstance.blockStampForNextReport();
@@ -539,32 +539,13 @@ contract EtherFiOracleTest is TestSetup {
 
         vm.expectRevert("EtherFiAdmin: report is too fresh");
         vm.prank(alice);
-        etherFiAdminInstance.executeTasks(reportAtPeriod2A, emptyBytes, emptyBytes);
+        etherFiAdminInstance.executeTasks(reportAtPeriod2A);
 
         _moveClock(1);
         assertEq(etherFiAdminInstance.canExecuteTasks(reportAtPeriod2A), true);
 
         vm.prank(alice);
-        etherFiAdminInstance.executeTasks(reportAtPeriod2A, emptyBytes, emptyBytes);
-    }
-
-    function test_all_pause() public {
-
-        vm.startPrank(alice);
-        etherFiAdminInstance.pause(true, true, true, false, false, false);
-        etherFiAdminInstance.pause(true, true, true, false, false, false);
-        etherFiAdminInstance.pause(true, true, true, true, true, true);
-        etherFiAdminInstance.pause(true, true, true, true, true, true);
-
-        vm.expectRevert("Ownable: caller is not the owner");
-        etherFiAdminInstance.unPause(false, false, false, false, false, false);
-        vm.stopPrank();
-
-        vm.startPrank(owner);
-        etherFiAdminInstance.unPause(false, false, false, true, true, true);
-        etherFiAdminInstance.unPause(true, true, true, true, true, true);
-        etherFiAdminInstance.unPause(true, true, true, true, true, true);
-        vm.stopPrank();
+        etherFiAdminInstance.executeTasks(reportAtPeriod2A);
     }
 
     function test_report_earlier_than_last_admin_execution_fails() public {
@@ -588,7 +569,7 @@ contract EtherFiOracleTest is TestSetup {
         vm.startPrank(alice);
         etherFiOracleInstance.submitReport(report);
         _moveClock(1 * 1024); // The oracle bot failed to submit the report for admin task execution... which can happen in real life
-        etherFiAdminInstance.executeTasks(report, emptyBytes, emptyBytes);
+        etherFiAdminInstance.executeTasks(report);
 
         report.refSlotFrom = 1024;
         report.refSlotTo = 2 * 1024 - 1;
@@ -607,7 +588,7 @@ contract EtherFiOracleTest is TestSetup {
         report.refBlockTo = 3 * 1024 - 1;
 
         etherFiOracleInstance.submitReport(report);
-        etherFiAdminInstance.executeTasks(report, emptyBytes, emptyBytes);
+        etherFiAdminInstance.executeTasks(report);
 
         vm.stopPrank();
     }

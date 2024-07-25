@@ -15,6 +15,7 @@ import "../src/interfaces/IStakingManager.sol";
 import "../src/interfaces/IEtherFiNode.sol";
 import "../src/interfaces/ILiquidityPool.sol";
 import "../src/interfaces/ILiquifier.sol";
+import "../src/interfaces/IPausable.sol";
 import "../src/EtherFiNodesManager.sol";
 import "../src/StakingManager.sol";
 import "../src/NodeOperatorManager.sol";
@@ -47,8 +48,8 @@ import "../src/archive/MembershipManagerV0.sol";
 import "../src/EtherFiOracle.sol";
 import "../src/EtherFiAdmin.sol";
 import "../src/EtherFiTimelock.sol";
-
 import "../src/BucketRateLimiter.sol";
+import "../src/Pauser.sol";
 
 contract TestSetup is Test {
 
@@ -183,6 +184,8 @@ contract TestSetup is Test {
     TVLOracle tvlOracle;
 
     EtherFiTimelock public etherFiTimelockInstance;
+
+    Pauser public pauserInstance;
     BucketRateLimiter public bucketRateLimiter;
 
     bytes32 root;
@@ -211,6 +214,7 @@ contract TestSetup is Test {
     address liquidityPool = vm.addr(9);
     address shonee = vm.addr(1200);
     address jess = vm.addr(1201);
+    address committeeMember = address(0x12582A27E5e19492b4FcD194a60F8f5e1aa31B0F);
 
     address admin;
 
@@ -301,13 +305,21 @@ contract TestSetup is Test {
         setUpTests();
     }
 
+    function initializeRealisticFork(uint8 forkEnum) public {
+        initializeRealisticForkWithBlock(forkEnum, 0);
+    }
+
     // initialize a fork which inherits the exact contracts, addresses, and state of
     // the associated network. This allows you to realistically test new transactions against
     // testnet or mainnet.
-    function initializeRealisticFork(uint8 forkEnum) public {
+    function initializeRealisticForkWithBlock(uint8 forkEnum, uint256 blockNo) public {
 
         if (forkEnum == MAINNET_FORK) {
-            vm.selectFork(vm.createFork(vm.envString("MAINNET_RPC_URL")));
+            if (blockNo == 0) {
+                vm.selectFork(vm.createFork(vm.envString("MAINNET_RPC_URL")));
+            } else {
+                vm.selectFork(vm.createFork(vm.envString("MAINNET_RPC_URL"), blockNo));
+            }
             addressProviderInstance = AddressProvider(address(0x8487c5F8550E3C3e7734Fe7DCF77DB2B72E4A848));
             owner = addressProviderInstance.getContractAddress("EtherFiTimelock");
             admin = 0x2aCA71020De61bb532008049e1Bd41E451aE8AdC;
@@ -377,6 +389,7 @@ contract TestSetup is Test {
         liquifierInstance = Liquifier(payable(addressProviderInstance.getContractAddress("Liquifier")));
         etherFiTimelockInstance = EtherFiTimelock(payable(addressProviderInstance.getContractAddress("EtherFiTimelock")));
         etherFiAdminInstance = EtherFiAdmin(payable(addressProviderInstance.getContractAddress("EtherFiAdmin")));
+        etherFiOracleInstance = EtherFiOracle(payable(addressProviderInstance.getContractAddress("EtherFiOracle")));
     }
 
     function setUpLiquifier(uint8 forkEnum) internal {
@@ -399,8 +412,6 @@ contract TestSetup is Test {
         bucketRateLimiter.setRefillRatePerSecond(1 ether);
 
         vm.warp(block.timestamp + 1 days);
-
-        // liquifierInstance.initializeRateLimiter(address(bucketRateLimiter));
 
         vm.stopPrank();
     }
@@ -644,6 +655,7 @@ contract TestSetup is Test {
             10000,
             0
         );
+        etherFiAdminInstance.setValidatorTaskBatchSize(20);
         etherFiAdminInstance.updateAdmin(alice, true);
 
         etherFiOracleInstance.setEtherFiAdmin(address(etherFiAdminInstance));
@@ -698,6 +710,7 @@ contract TestSetup is Test {
         stakingManagerInstance.registerTNFTContract(address(TNFTInstance));
         stakingManagerInstance.registerBNFTContract(address(BNFTInstance));
 
+
         depGen = new DepositDataGeneration();
 
         attacker = new Attacker(address(liquidityPoolInstance));
@@ -711,6 +724,12 @@ contract TestSetup is Test {
         _initializePeople();
         _initializeEtherFiAdmin();
 
+        // weETH and Liquidity Pool must be on eETH to function as expected
+        vm.prank(owner);
+        address[] memory whitelist = new address[](2);
+        whitelist[0] = address(weEthInstance);
+        whitelist[1] = address(liquidityPoolInstance);
+        eETHInstance.setWhitelistedSpender(whitelist, true);
     }
 
     function setupRoleRegistry() public {
@@ -726,9 +745,24 @@ contract TestSetup is Test {
             bytes memory initializerData =  abi.encodeWithSelector(RoleRegistry.initialize.selector, admin);
             roleRegistry = RoleRegistry(address(new UUPSProxy(address(roleRegistryImplementation), initializerData)));
 
-            vm.prank(managerInstance.owner());
+            vm.startPrank(owner);
             managerInstance.initializeV2dot5(address(roleRegistry));
+            liquidityPoolInstance.initializeV2dot5(address(roleRegistry));
+            auctionInstance.initializeV2dot5(address(roleRegistry));
+            stakingManagerInstance.initializeV2dot5(address(roleRegistry));
+            nodeOperatorManagerInstance.initializeV2dot5(address(roleRegistry));
+            vm.stopPrank();
+            vm.startPrank(etherFiOracleInstance.owner());
+            etherFiOracleInstance.initializeV2dot5(address(roleRegistry));
         }
+
+        // TODO: along with the role registry, the pauser should be uncoupled in the future
+        Pauser pauserImplementation = new Pauser();
+        IPausable[] memory initialPausables = new IPausable[](2);
+        initialPausables[0] = IPausable(address(liquidityPoolInstance));
+        initialPausables[1] = IPausable(address(etherFiOracleInstance));
+        bytes memory initializerData = abi.encodeWithSelector(Pauser.initialize.selector, initialPausables, address(roleRegistry));
+        pauserInstance = Pauser(address(new UUPSProxy(address(pauserImplementation), initializerData)));
 
         vm.startPrank(admin);
         roleRegistry.grantRole(managerInstance.NODE_ADMIN_ROLE(), admin);
@@ -743,8 +777,8 @@ contract TestSetup is Test {
         roleRegistry.grantRole(managerInstance.WHITELIST_UPDATER(), owner);
         roleRegistry.grantRole(roleRegistry.PROTOCOL_PAUSER(), owner);
         roleRegistry.grantRole(roleRegistry.PROTOCOL_UNPAUSER(), owner);
-        roleRegistry.grantRole(roleRegistry.PROTOCOL_PAUSER(), address(etherFiAdminInstance));
-        roleRegistry.grantRole(roleRegistry.PROTOCOL_UNPAUSER(), address(etherFiAdminInstance));
+        roleRegistry.grantRole(roleRegistry.PROTOCOL_PAUSER(), address(pauserInstance));
+        roleRegistry.grantRole(roleRegistry.PROTOCOL_UNPAUSER(), address(pauserInstance));
         vm.stopPrank();
 
         vm.startPrank(owner);
@@ -1004,7 +1038,7 @@ contract TestSetup is Test {
         }
 
         vm.prank(alice);
-        etherFiAdminInstance.executeTasks(_report, _pubKey, _pubKey);
+        etherFiAdminInstance.executeTasks(_report);
     }
 
     function _emptyOracleReport() internal view returns (IEtherFiOracle.OracleReport memory report) {
@@ -1352,6 +1386,24 @@ contract TestSetup is Test {
         address newImpl = address(new LiquidityPool());
         vm.prank(liquidityPoolInstance.owner());
         liquidityPoolInstance.upgradeTo(newImpl);
+    }
+
+    function _upgrade_auction_manager_contract() internal {
+        address newImpl = address(new AuctionManager());
+        vm.prank(auctionInstance.owner());
+        auctionInstance.upgradeTo(newImpl);
+    }
+
+    function _upgrade_node_oeprator_manager_contract() internal {
+        address newImpl = address(new NodeOperatorManager());
+        vm.prank(nodeOperatorManagerInstance.owner());
+        nodeOperatorManagerInstance.upgradeTo(newImpl);
+    }
+
+    function _upgrade_etherfi_oracle_contract() internal {
+        address newImpl = address(new EtherFiOracle());
+        vm.prank(etherFiOracleInstance.owner());
+        etherFiOracleInstance.upgradeTo(newImpl);
     }
 
     function _upgrade_liquifier() internal {
