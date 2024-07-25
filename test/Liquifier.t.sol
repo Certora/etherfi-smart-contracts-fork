@@ -36,6 +36,7 @@ contract LiquifierTest is TestSetup {
     }
 
     function _setUp(uint8 forkEnum) internal {
+
         initializeTestingFork(forkEnum);
         setUpLiquifier(forkEnum);
 
@@ -43,14 +44,12 @@ contract LiquifierTest is TestSetup {
         _enable_deposit(address(wbEthStrategy));
 
         vm.startPrank(owner);
-        liquifierInstance.registerToken(address(stEth), address(stEthStrategy), true, 0, 50, 1000, false); // 50 ether timeBoundCap, 1000 ether total cap
+        liquifierInstance.registerToken(address(stEth), address(stEthStrategy), true, 0, false); // 50 ether timeBoundCap, 1000 ether total cap
         if (forkEnum == MAINNET_FORK) {
-            liquifierInstance.registerToken(address(cbEth), address(cbEthStrategy), true, 0, 50, 1000, false);
-            liquifierInstance.registerToken(address(wbEth), address(wbEthStrategy), true, 0, 50, 1000, false);
+            liquifierInstance.registerToken(address(cbEth), address(cbEthStrategy), true, 0, false);
+            liquifierInstance.registerToken(address(wbEth), address(wbEthStrategy), true, 0, false);
         }
         vm.stopPrank();
-
-        dummyToken = new DummyERC20();
     }
 
     function test_rando_deposit_fails() public {
@@ -64,17 +63,14 @@ contract LiquifierTest is TestSetup {
     }
 
     function test_deposit_above_cap() public {
-        initializeRealisticFork(MAINNET_FORK);
-        setUpLiquifier(MAINNET_FORK);
-
-        vm.deal(alice, 1000000000 ether);
+        test_deposit_stEth();
 
         vm.startPrank(alice);
-        stEth.submit{value: 100000 ether + 1 ether}(address(0));
-        stEth.approve(address(liquifierInstance), 100000 ether);
+        stEth.submit{value: 20 ether}(address(0));
+        stEth.approve(address(liquifierInstance), 20 ether);
 
-        vm.expectRevert("CAPPED");
-        liquifierInstance.depositWithERC20(address(stEth), 100000 ether, address(0));
+        vm.expectRevert("BucketRateLimiter: rate limit exceeded");
+        liquifierInstance.depositWithERC20(address(stEth), 20 ether, address(0));
 
         vm.stopPrank();
     }
@@ -220,8 +216,6 @@ contract LiquifierTest is TestSetup {
     function test_withdrawal_of_restaked_wBETH_succeeds() internal {
         _setUp(MAINNET_FORK);
 
-        _enable_deposit(address(wbEthStrategy));
-
         vm.deal(alice, 100 ether);
         vm.startPrank(alice);        
         wbEth.deposit{value: 20 ether}(address(0));
@@ -242,7 +236,7 @@ contract LiquifierTest is TestSetup {
     function test_erc20_queued_withdrawal_v2() public {
         initializeRealisticFork(MAINNET_FORK);
         setUpLiquifier(MAINNET_FORK);
-       
+
         uint256 liquifierTVL = liquifierInstance.getTotalPooledEther();
         uint256 lpTvl = liquidityPoolInstance.getTotalPooledEther();
 
@@ -427,7 +421,7 @@ contract LiquifierTest is TestSetup {
     }
 
 
-    function test_pancacke_wbETH_swap() internal {
+    function test_pancacke_wbETH_swap() public {
         initializeRealisticFork(MAINNET_FORK);
         setUpLiquifier(MAINNET_FORK);
 
@@ -489,7 +483,7 @@ contract LiquifierTest is TestSetup {
 
         vm.startPrank(owner);
         dummyToken = new DummyERC20();
-        liquifierInstance.registerToken(address(dummyToken), address(0), true, 0, 50, 1000, true);
+        liquifierInstance.registerToken(address(dummyToken), address(0), true, 0, true);
         vm.stopPrank();
 
         vm.warp(block.timestamp + 20);
@@ -546,7 +540,7 @@ contract LiquifierTest is TestSetup {
         liquifierInstance.depositWithERC20(address(dummyToken), _x, address(0));
         vm.stopPrank();
     }
-
+    
     function test_slow_sync_with_random_token_fail() public {
         test_fast_sync_success();
 
@@ -610,7 +604,7 @@ contract LiquifierTest is TestSetup {
 
         vm.startPrank(owner);
         DummyERC20 dummyToken2 = new DummyERC20();
-        liquifierInstance.registerToken(address(dummyToken2), address(0), true, 0, 50, 1000, true);
+        liquifierInstance.registerToken(address(dummyToken2), address(0), true, 0, true);
         vm.stopPrank();
 
         uint256 x = 5 ether;
@@ -623,8 +617,6 @@ contract LiquifierTest is TestSetup {
         initializeRealisticFork(MAINNET_FORK);
 
         bool isTokenWhitelisted = liquifierInstance.isTokenWhitelisted(address(stEth));
-        uint256 timeBoundCap = liquifierInstance.timeBoundCap(address(stEth));
-        uint256 totalCap = liquifierInstance.totalCap(address(stEth));
         uint256 totalDeposited = liquifierInstance.totalDeposited(address(stEth));
         uint256 getTotalPooledEther = liquifierInstance.getTotalPooledEther(address(stEth));
 
@@ -633,8 +625,6 @@ contract LiquifierTest is TestSetup {
 
         assertEq(liquifierInstance.isTokenWhitelisted(address(stEth)), isTokenWhitelisted);
         assertEq(liquifierInstance.isL2Eth(address(stEth)), false);
-        assertEq(liquifierInstance.timeBoundCap(address(stEth)), timeBoundCap);
-        assertEq(liquifierInstance.totalCap(address(stEth)), totalCap);
         assertEq(liquifierInstance.totalDeposited(address(stEth)), totalDeposited);
         assertEq(liquifierInstance.getTotalPooledEther(address(stEth)), getTotalPooledEther);
     }
@@ -642,29 +632,28 @@ contract LiquifierTest is TestSetup {
     function test_pauser() public {
         initializeRealisticFork(MAINNET_FORK);
         setUpLiquifier(MAINNET_FORK);
-
+        // testing the pause logic with the V2.5 upgrade
+        setUpTests();
         owner = liquifierInstance.owner();
+        vm.prank(owner);
+        liquifierInstance.initializeV2dot5(address(roleRegistry));
 
         vm.startPrank(bob);
-        vm.expectRevert();
+        vm.expectRevert(Liquifier.IncorrectRole.selector);
         liquifierInstance.pauseContract();
         vm.stopPrank();
 
-        vm.prank(owner);
-        liquifierInstance.updatePauser(bob, true);
-
-        vm.startPrank(bob);
+        vm.startPrank(address(pauserInstance));
         liquifierInstance.pauseContract();
         vm.stopPrank();
 
         vm.startPrank(bob);
-        vm.expectRevert();
+        vm.expectRevert(Liquifier.IncorrectRole.selector);
         liquifierInstance.unPauseContract();
         vm.stopPrank();
 
-        vm.prank(owner);
+        vm.prank(address(pauserInstance));
         liquifierInstance.unPauseContract();
-
     }
 
     function test_getTotalPooledEther() public {
