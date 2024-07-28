@@ -40,11 +40,11 @@ contract StakingManager is
     uint128 public maxBatchDepositSize;
     uint128 public stakeAmount;
 
-    address public implementationContract;
+    address public etherFiNodeImplementation;
     address public liquidityPoolContract;
 
     bool public DEPRECATED_isFullStakeEnabled;
-    bytes32 public merkleRoot;
+    bytes32 public DEPRECATED_merkleRoot;
 
     ITNFT public TNFTInterfaceInstance;
     IBNFT public BNFTInterfaceInstance;
@@ -57,9 +57,15 @@ contract StakingManager is
 
     address public DEPRECATED_admin;
     address public nodeOperatorManager;
-    mapping(address => bool) public admins;
+    mapping(address => bool) public DEPRECATED_admins;
 
     RoleRegistry public roleRegistry;
+
+    //--------------------------------------------------------------------------------------
+    //-------------------------------------  ROLES  ---------------------------------------
+    //--------------------------------------------------------------------------------------
+
+    bytes32 public constant STAKING_MANAGER_ADMIN_ROLE = keccak256("STAKING_MANAGER_ADMIN_ROLE");
 
     //--------------------------------------------------------------------------------------
     //-------------------------------------  EVENTS  ---------------------------------------
@@ -102,12 +108,13 @@ contract StakingManager is
     function initializeOnUpgrade(address _nodeOperatorManager, address _etherFiAdmin) external onlyOwner {
         DEPRECATED_admin = address(0);
         nodeOperatorManager = _nodeOperatorManager;
-        admins[_etherFiAdmin] = true;
+        DEPRECATED_admins[_etherFiAdmin] = true;
     }
 
     function initializeV2dot5(address _roleRegistry) external onlyOwner {
         require(address(roleRegistry) == address(0x00), "already initialized");
 
+        // TODO: compile list of values in DEPRECATED_admins to clear out
         roleRegistry = RoleRegistry(_roleRegistry);
     }
     
@@ -131,20 +138,18 @@ contract StakingManager is
 
     /// @notice Creates validator object, mints NFTs, sets NB variables and deposits 1 ETH into beacon chain
     /// @dev Function gets called from the LP and is used in the BNFT staking flow
-    /// @param _depositRoot The fetched root of the Beacon Chain
     /// @param _validatorId Array of IDs of the validator to register
     /// @param _bNftRecipient Array of BNFT recipients
     /// @param _tNftRecipient Array of TNFT recipients
     /// @param _depositData Array of data structures to hold all data needed for depositing to the beacon chain
     /// @param _staker address of the BNFT holder who initiated the transaction
     function batchRegisterValidators(
-        bytes32 _depositRoot,
         uint256[] calldata _validatorId,
         address _bNftRecipient,
         address _tNftRecipient,
         DepositData[] calldata _depositData,
         address _staker
-    ) public payable whenNotPaused nonReentrant verifyDepositState(_depositRoot) {
+    ) public payable whenNotPaused nonReentrant {
         require(msg.sender == liquidityPoolContract, "INCORRECT_CALLER");
         require(_validatorId.length <= maxBatchDepositSize && _validatorId.length == _depositData.length, "WRONG_PARAMS");
         require(msg.value == _validatorId.length * 1 ether, "DEPOSIT_AMOUNT_MISMATCH");
@@ -237,16 +242,18 @@ contract StakingManager is
 
     /// @notice Sets the max number of deposits allowed at a time
     /// @param _newMaxBatchDepositSize the max number of deposits allowed
-    function setMaxBatchDepositSize(uint128 _newMaxBatchDepositSize) public onlyAdmin {
+    function setMaxBatchDepositSize(uint128 _newMaxBatchDepositSize) public {
+        if (!roleRegistry.hasRole(STAKING_MANAGER_ADMIN_ROLE, msg.sender)) revert IncorrectRole();
+
         maxBatchDepositSize = _newMaxBatchDepositSize;
     }
 
     function registerEtherFiNodeImplementationContract(address _etherFiNodeImplementationContract) public onlyOwner {
-        if (address(upgradableBeacon) != address(0) || address(implementationContract) != address(0)) revert ALREADY_SET();
+        if (address(upgradableBeacon) != address(0) || address(etherFiNodeImplementation) != address(0)) revert ALREADY_SET();
         require(_etherFiNodeImplementationContract != address(0), "ZERO_ADDRESS");
 
-        implementationContract = _etherFiNodeImplementationContract;
-        upgradableBeacon = new UpgradeableBeacon(implementationContract);      
+        etherFiNodeImplementation = _etherFiNodeImplementationContract;
+        upgradableBeacon = new UpgradeableBeacon(etherFiNodeImplementation);      
     }
 
     /// @notice Instantiates the TNFT interface
@@ -271,7 +278,7 @@ contract StakingManager is
         require(_newImplementation != address(0), "ZERO_ADDRESS");
         
         upgradableBeacon.upgradeTo(_newImplementation);
-        implementationContract = _newImplementation;
+        etherFiNodeImplementation = _newImplementation;
     }
 
     // Pauses the contract
@@ -285,15 +292,11 @@ contract StakingManager is
         if (!roleRegistry.hasRole(roleRegistry.PROTOCOL_UNPAUSER(), msg.sender)) revert IncorrectRole();
         _unpause();
     }
-    /// @notice Updates the address of the admin
-    /// @param _address the new address to set as admin
-    function updateAdmin(address _address, bool _isAdmin) external onlyOwner {
-        require(_address != address(0), "ZERO_ADDRESS");
-        admins[_address] = _isAdmin;
-    }
     
-    function setNodeOperatorManager(address _nodeOperateManager) external onlyAdmin {
+    function setNodeOperatorManager(address _nodeOperateManager) external {
+        if (!roleRegistry.hasRole(STAKING_MANAGER_ADMIN_ROLE, msg.sender)) revert IncorrectRole();
         require(_nodeOperateManager != address(0), "ZERO_ADDRESS");
+
         nodeOperatorManager = _nodeOperateManager;
     }
 
@@ -465,18 +468,6 @@ contract StakingManager is
         }
     }
 
-    function _requireAdmin() internal view virtual {
-        require(admins[msg.sender], "NOT_ADMIN");
-    }
-
-    function _verifyDepositState(bytes32 _depositRoot) internal view virtual {
-        // disable deposit root check if none provided
-        if (_depositRoot != 0x0000000000000000000000000000000000000000000000000000000000000000) {
-            bytes32 onchainDepositRoot = depositContractEth2.get_deposit_root();
-            require(_depositRoot == onchainDepositRoot, "DEPOSIT_ROOT_CHANGED");
-        }
-    }
-
     //--------------------------------------------------------------------------------------
     //------------------------------------  GETTERS  ---------------------------------------
     //--------------------------------------------------------------------------------------
@@ -505,14 +496,4 @@ contract StakingManager is
     //--------------------------------------------------------------------------------------
     //-----------------------------------  MODIFIERS  --------------------------------------
     //--------------------------------------------------------------------------------------
-
-    modifier verifyDepositState(bytes32 _depositRoot) {
-        _verifyDepositState(_depositRoot);
-        _;
-    }
-
-    modifier onlyAdmin() {
-        _requireAdmin();
-        _;
-    }
 }
