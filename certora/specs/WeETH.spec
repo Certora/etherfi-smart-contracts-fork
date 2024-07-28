@@ -16,10 +16,8 @@ function identity(uint256 x) returns uint256 {
 }
 
 rule sanity(method f) {
-    env e; 
+    env e;
     calldataarg args;
-
-    f(e,args);
-    
-    assert false;
+    f(e, args);
+    satisfy true;
 }
