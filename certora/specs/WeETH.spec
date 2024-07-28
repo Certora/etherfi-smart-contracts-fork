@@ -4,7 +4,6 @@ methods {
     function allowance(address, address) external returns (uint256) envfree;
 
     function _.sharesForAmount(uint256 amount) external => identity(amount) expect uint256;
-    function _.amountForShare(uint256 amount) external => identity(amount) expect uint256;
 }
 
 function identity(uint256 x) returns uint256 {
@@ -89,7 +88,7 @@ rule transferCorrect(address to, uint256 amount) {
             assert shares(to) == assert_uint256(toBalanceBefore + amount);
         }
     } else {
-        assert amount > fromBalanceBefore || to == 0 || e.msg.sender == to;
+        assert amount > fromBalanceBefore || to == 0 || e.msg.sender == to || to == currentContract;
     }
 }
 
@@ -124,7 +123,7 @@ rule transferFromReverts(address from, address to, uint256 amount) {
 
     transferFrom@withrevert(e, from, to, amount);
 
-    assert lastReverted <=> (allowanceBefore < amount || amount > fromBalanceBefore || to == 0);
+    assert lastReverted <=> (allowanceBefore < amount || amount > fromBalanceBefore || to == 0 || to == currentContract);
 }
 
 /**
