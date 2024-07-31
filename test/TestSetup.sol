@@ -687,7 +687,6 @@ contract TestSetup is Test {
 
         // Setup dependencies
         vm.startPrank(alice);
-        _approveNodeOperators();
         _setUpNodeOperatorWhitelist();
         vm.stopPrank();
 
@@ -755,6 +754,7 @@ contract TestSetup is Test {
             etherFiAdminInstance.initializeV2dot5(address(roleRegistry));
             vm.prank(etherFiOracleInstance.owner());
             etherFiOracleInstance.initializeV2dot5(address(roleRegistry));
+            
         }
 
         // TODO: along with the role registry, the pauser should be uncoupled in the future
@@ -812,15 +812,15 @@ contract TestSetup is Test {
         uint32[] memory  exitTimestamps = new uint32[](0);
         uint256[] memory slashedValidators = new uint256[](0);
         uint256[] memory withdrawalRequestsToInvalidate = new uint256[](0);
-        reportAtPeriod2A = IEtherFiOracle.OracleReport(1, 0, 1024 - 1, 0, 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtPeriod2B = IEtherFiOracle.OracleReport(1, 0, 1024 - 1, 0, 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 81, 19, 0, 0);
-        reportAtPeriod2C = IEtherFiOracle.OracleReport(2, 0, 1024 - 1, 0, 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 79, 21, 0, 0);
-        reportAtPeriod3 = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 0, 2048 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtPeriod3A = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 0, 3 * 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtPeriod3B = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 1, 2 * 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtPeriod4 = IEtherFiOracle.OracleReport(1, 2 * 1024, 1024 * 3 - 1, 2 * 1024, 3 * 1024 - 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtSlot3071 = IEtherFiOracle.OracleReport(1, 2048, 3072 - 1, 2048, 3072 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtSlot4287 = IEtherFiOracle.OracleReport(1, 3264, 4288 - 1, 3264, 4288 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod2A = IEtherFiOracle.OracleReport(1, 0, 1024 - 1, 0, 1024 - 1, 1, 0,validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod2B = IEtherFiOracle.OracleReport(1, 0, 1024 - 1, 0, 1024 - 1, 1, 0,validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 81, 19, 0, 0);
+        reportAtPeriod2C = IEtherFiOracle.OracleReport(2, 0, 1024 - 1, 0, 1024 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 79, 21, 0, 0);
+        reportAtPeriod3 = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 0, 2048 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod3A = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 0, 3 * 1024 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod3B = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 1, 2 * 1024 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod4 = IEtherFiOracle.OracleReport(1, 2 * 1024, 1024 * 3 - 1, 2 * 1024, 3 * 1024 - 1, 0, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtSlot3071 = IEtherFiOracle.OracleReport(1, 2048, 3072 - 1, 2048, 3072 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtSlot4287 = IEtherFiOracle.OracleReport(1, 3264, 4288 - 1, 3264, 4288 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
     }
 
     function _merkleSetup() internal {
@@ -960,42 +960,6 @@ contract TestSetup is Test {
         vm.stopPrank();
     }
 
-    function _approveNodeOperators() internal {
-        address[] memory users = new address[](5);
-        users[0] = address(alice);
-        users[1] = address(bob);
-        users[2] = address(bob);
-        users[3] = address(owner);
-        users[4] = address(elvis);
-
-        ILiquidityPool.SourceOfFunds[] memory approvedTags = new ILiquidityPool.SourceOfFunds[](5);
-        approvedTags[0] = ILiquidityPool.SourceOfFunds.EETH;
-        approvedTags[1] = ILiquidityPool.SourceOfFunds.ETHER_FAN;
-        approvedTags[2] = ILiquidityPool.SourceOfFunds.EETH;
-        approvedTags[3] = ILiquidityPool.SourceOfFunds.EETH;
-        approvedTags[4] = ILiquidityPool.SourceOfFunds.EETH;
-
-        bool[] memory approvals = new bool[](5);
-        approvals[0] = true;
-        approvals[1] = true;
-        approvals[2] = true;
-        approvals[3] = true;
-        approvals[4] = true;
-
-        nodeOperatorManagerInstance.batchUpdateOperatorsApprovedTags(users, approvedTags, approvals);
-
-        address[] memory aliceUser = new address[](1);
-        aliceUser[0] = address(alice);
-
-        ILiquidityPool.SourceOfFunds[] memory aliceApprovedTags = new ILiquidityPool.SourceOfFunds[](1);
-        aliceApprovedTags[0] = ILiquidityPool.SourceOfFunds.ETHER_FAN;
-
-        bool[] memory aliceApprovals = new bool[](1);
-        aliceApprovals[0] = true;
-        nodeOperatorManagerInstance.batchUpdateOperatorsApprovedTags(aliceUser, aliceApprovedTags, aliceApprovals);
-
-    }
-
     function _initReportBlockStamp(IEtherFiOracle.OracleReport memory _report) internal view {
         (uint32 slotFrom, uint32 slotTo, uint32 blockFrom) = etherFiOracleInstance.blockStampForNextReport();
         _report.refSlotFrom = slotFrom;
@@ -1051,7 +1015,7 @@ contract TestSetup is Test {
         uint256[] memory emptyVals = new uint256[](0);
         uint32[] memory emptyVals32 = new uint32[](0);
         uint32 consensusVersion = etherFiOracleInstance.consensusVersion();
-        report = IEtherFiOracle.OracleReport(consensusVersion, 0, 0, 0, 0, 0, emptyVals, emptyVals, emptyVals, emptyVals32, emptyVals, emptyVals, 0, 0, 0, 0, 0);
+        report = IEtherFiOracle.OracleReport(consensusVersion, 0, 0, 0, 0, 0, 0, emptyVals, emptyVals, emptyVals, emptyVals32, emptyVals, emptyVals, 0, 0, 0, 0, 0);
     }
 
     function calculatePermitDigest(address _owner, address spender, uint256 value, uint256 nonce, uint256 deadline, bytes32 domainSeparator) public pure returns (bytes32) {
@@ -1081,7 +1045,7 @@ contract TestSetup is Test {
     }
 
     function registerAsBnftHolder(address _user) internal {
-        (bool registered, uint32 index) = liquidityPoolInstance.bnftHoldersIndexes(_user);
+        (bool registered) = liquidityPoolInstance.validatorSpawner(_user);
         if (!registered) liquidityPoolInstance.registerAsBnftHolder(_user);
     }
 
@@ -1107,13 +1071,11 @@ contract TestSetup is Test {
         vm.deal(henry, 100000 ether);
         vm.deal(chad, 100000 ether);
 
-        (bool registered, uint32 index) = liquidityPoolInstance.bnftHoldersIndexes(alice);
+        (bool registered) = liquidityPoolInstance.validatorSpawner(alice);
         assertEq(registered, true);
-        assertEq(index, 0);
 
-        (registered, index) = liquidityPoolInstance.bnftHoldersIndexes(henry);
+        (registered) = liquidityPoolInstance.validatorSpawner(henry);
         assertEq(registered, true);
-        assertEq(index, 7);
     }
 
     function depositAndRegisterValidator(bool restaked) public returns (uint256) {
@@ -1138,7 +1100,7 @@ contract TestSetup is Test {
 
         // deposit against that bid with restaking enabled
         vm.prank(address(liquidityPoolInstance));
-        stakingManagerInstance.batchDepositWithBidIds(createdBids, 1, alice, alice, alice, ILiquidityPool.SourceOfFunds.EETH, restaked, 0);
+        stakingManagerInstance.batchDepositWithBidIds(createdBids, 1, alice, alice, alice, restaked, 0);
 
         (IStakingManager.DepositData[] memory depositDataArray,,,) = _prepareForValidatorRegistration(createdBids);
         vm.deal(address(liquidityPoolInstance), 1 ether);
@@ -1194,21 +1156,6 @@ contract TestSetup is Test {
                 _ipfsHash,
                 10000
             );
-        }
-        vm.stopPrank();
-
-        vm.startPrank(admin);
-        {
-            address[] memory users = new address[](2);
-            ILiquidityPool.SourceOfFunds[] memory approvedTags = new ILiquidityPool.SourceOfFunds[](2);
-            bool[] memory approvals = new bool[](2);
-            users[0] = _nodeOperator;
-            users[1] = _nodeOperator;
-            approvedTags[0] = ILiquidityPool.SourceOfFunds.EETH;
-            approvedTags[1] = ILiquidityPool.SourceOfFunds.ETHER_FAN;
-            approvals[0] = true;
-            approvals[1] = true;
-            nodeOperatorManagerInstance.batchUpdateOperatorsApprovedTags(users, approvedTags, approvals);
         }
         vm.stopPrank();
 

@@ -134,9 +134,9 @@ contract EtherFiAdmin is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         numValidatorsToSpinUp = _report.numValidatorsToSpinUp;
 
         _handleAccruedRewards(_report);
+        _handleProtocolFees(_report);
         _handleValidators(reportHash, _report);
         _handleWithdrawals(_report);
-        _handleTargetFundsAllocations(_report);
 
         lastHandledReportRefSlot = _report.refSlotTo;
         lastHandledReportRefBlock = _report.refBlockTo;
@@ -176,6 +176,14 @@ contract EtherFiAdmin is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         require(!validatorManagementTaskStatus[taskHash].completed, "EtherFiAdmin: task already completed");
         validatorManagementTaskStatus[taskHash].exists = false;
         emit ValidatorManagementTaskInvalidated(taskHash, _reportHash, _validators, _timestamps, validatorManagementTaskStatus[taskHash].taskType);
+    }
+
+    //protocol owns the eth that was distributed to NO and treasury in eigenpods and etherfinodes 
+    function _handleProtocolFees(IEtherFiOracle.OracleReport calldata _report) internal { 
+        if(_report.protocolFees == 0) {
+            return;
+        }
+        liquidityPool.payProtocolFees(_report.protocolFees);
     }
 
     function _handleAccruedRewards(IEtherFiOracle.OracleReport calldata _report) internal {
@@ -243,14 +251,6 @@ contract EtherFiAdmin is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         withdrawRequestNft.finalizeRequests(_report.lastFinalizedWithdrawalRequestId);
 
         liquidityPool.addEthAmountLockedForWithdrawal(_report.finalizedWithdrawalAmount);
-    }
-
-    function _handleTargetFundsAllocations(IEtherFiOracle.OracleReport calldata _report) internal {
-        // To handle the case when we want to avoid updating the params too often (to save gas fee)
-        if (_report.eEthTargetAllocationWeight == 0 && _report.etherFanTargetAllocationWeight == 0) {
-            return;
-        }
-        liquidityPool.setStakingTargetWeights(_report.eEthTargetAllocationWeight, _report.etherFanTargetAllocationWeight);
     }
 
     function slotForNextReportToProcess() public view returns (uint32) {
