@@ -32,12 +32,12 @@ import "../src/EETH.sol";
 import "../src/WeETH.sol";
 import "../src/MembershipManager.sol";
 import "../src/MembershipNFT.sol";
-import "../src/EarlyAdopterPool.sol";
+import "../src/archive/EarlyAdopterPool.sol";
 import "../src/RoleRegistry.sol";
 import "../src/TVLOracle.sol";
 import "../src/UUPSProxy.sol";
 import "../src/WithdrawRequestNFT.sol";
-import "../src/NFTExchange.sol";
+import "src/archive/NFTExchange.sol";
 import "../src/helpers/AddressProvider.sol";
 import "./DepositDataGeneration.sol";
 import "./DepositContract.sol";
@@ -218,6 +218,9 @@ contract TestSetup is Test {
 
     address admin;
 
+    // TODO: move uses of `DEFAULT_ADMIN_ROLE` to originate from `superAdmin` 
+    address superAdmin;
+
     address[] public actors;
     address[] public bnftHoldersArray;
     uint256[] public whitelistIndices;
@@ -393,15 +396,8 @@ contract TestSetup is Test {
     }
 
     function setUpLiquifier(uint8 forkEnum) internal {
+        // intialize `pauser` and `roleRegistry` for testing against V2.5
         vm.startPrank(owner);
-            
-        if (forkEnum == MAINNET_FORK) {            
-            liquifierInstance.upgradeTo(address(new Liquifier()));
-            liquifierInstance.updateAdmin(alice, true);
-        } else if (forkEnum == TESTNET_FORK) {
-            liquifierInstance.upgradeTo(address(new Liquifier()));
-            liquifierInstance.updateAdmin(alice, true);
-        }
 
         address impl = address(new BucketRateLimiter());
         bucketRateLimiter = BucketRateLimiter(address(new UUPSProxy(impl, "")));
@@ -410,6 +406,11 @@ contract TestSetup is Test {
 
         bucketRateLimiter.setCapacity(40 ether);
         bucketRateLimiter.setRefillRatePerSecond(1 ether);
+
+        if (forkEnum == MAINNET_FORK || forkEnum == TESTNET_FORK) {
+            liquifierInstance.upgradeTo(address(new Liquifier()));
+            liquifierInstance.initializeV2dot5(address(roleRegistry), address(pauserInstance));
+        }
 
         vm.warp(block.timestamp + 1 days);
 
@@ -430,19 +431,16 @@ contract TestSetup is Test {
         nodeOperatorManagerProxy = new UUPSProxy(address(nodeOperatorManagerImplementation), "");
         nodeOperatorManagerInstance = NodeOperatorManager(address(nodeOperatorManagerProxy));
         nodeOperatorManagerInstance.initialize();
-        nodeOperatorManagerInstance.updateAdmin(alice, true);
 
         auctionImplementation = new AuctionManager();
         auctionManagerProxy = new UUPSProxy(address(auctionImplementation), "");
         auctionInstance = AuctionManager(address(auctionManagerProxy));
         auctionInstance.initialize(address(nodeOperatorManagerInstance));
-        auctionInstance.updateAdmin(alice, true);
 
         stakingManagerImplementation = new StakingManager();
         stakingManagerProxy = new UUPSProxy(address(stakingManagerImplementation), "");
         stakingManagerInstance = StakingManager(address(stakingManagerProxy));
         stakingManagerInstance.initialize(address(auctionInstance), address(mockDepositContractEth2));
-        stakingManagerInstance.updateAdmin(alice, true);
 
         TNFTImplementation = new TNFT();
         TNFTProxy = new UUPSProxy(address(TNFTImplementation), "");
@@ -603,8 +601,6 @@ contract TestSetup is Test {
         vm.startPrank(owner);
         membershipManagerInstance.updateAdmin(alice, true);
         membershipNftInstance.updateAdmin(alice, true);
-        withdrawRequestNFTInstance.updateAdmin(alice, true);
-        liquidityPoolInstance.updateAdmin(alice, true);
         // liquifierInstance.updateAdmin(alice, true);
 
         // special case for forked tests utilizing oracle
@@ -656,7 +652,7 @@ contract TestSetup is Test {
             0
         );
         etherFiAdminInstance.setValidatorTaskBatchSize(20);
-        etherFiAdminInstance.updateAdmin(alice, true);
+        // etherFiAdminInstance.updateAdmin(alice, true);
 
         etherFiOracleInstance.setEtherFiAdmin(address(etherFiAdminInstance));
         liquidityPoolInstance.initializeOnUpgrade(address(auctionManagerProxy), address(liquifierInstance));
@@ -686,13 +682,11 @@ contract TestSetup is Test {
 
         vm.startPrank(alice);
         liquidityPoolInstance.unPauseContract();
-        liquidityPoolInstance.updateWhitelistStatus(false);
         liquidityPoolInstance.setRestakeBnftDeposits(restakingBnftDeposits);
         vm.stopPrank();
 
         // Setup dependencies
         vm.startPrank(alice);
-        _approveNodeOperators();
         _setUpNodeOperatorWhitelist();
         vm.stopPrank();
 
@@ -744,16 +738,23 @@ contract TestSetup is Test {
             roleRegistryImplementation = new RoleRegistry();
             bytes memory initializerData =  abi.encodeWithSelector(RoleRegistry.initialize.selector, admin);
             roleRegistry = RoleRegistry(address(new UUPSProxy(address(roleRegistryImplementation), initializerData)));
+            superAdmin = admin;
 
+            // upgrade our existing contracts to utilize `roleRegistry`
             vm.startPrank(owner);
             managerInstance.initializeV2dot5(address(roleRegistry));
             liquidityPoolInstance.initializeV2dot5(address(roleRegistry));
             auctionInstance.initializeV2dot5(address(roleRegistry));
             stakingManagerInstance.initializeV2dot5(address(roleRegistry));
             nodeOperatorManagerInstance.initializeV2dot5(address(roleRegistry));
+            liquifierInstance.initializeV2dot5(address(roleRegistry), address(bucketRateLimiter));
+            withdrawRequestNFTInstance.initializeV2dot5(address(roleRegistry));
             vm.stopPrank();
-            vm.startPrank(etherFiOracleInstance.owner());
+            vm.prank(etherFiAdminInstance.owner());
+            etherFiAdminInstance.initializeV2dot5(address(roleRegistry));
+            vm.prank(etherFiOracleInstance.owner());
             etherFiOracleInstance.initializeV2dot5(address(roleRegistry));
+            
         }
 
         // TODO: along with the role registry, the pauser should be uncoupled in the future
@@ -779,6 +780,17 @@ contract TestSetup is Test {
         roleRegistry.grantRole(roleRegistry.PROTOCOL_UNPAUSER(), owner);
         roleRegistry.grantRole(roleRegistry.PROTOCOL_PAUSER(), address(pauserInstance));
         roleRegistry.grantRole(roleRegistry.PROTOCOL_UNPAUSER(), address(pauserInstance));
+
+        // Grant contract specific admin roles replacement for `updateAdmin(alice, true);` from protocol V2
+        roleRegistry.grantRole(liquidityPoolInstance.LIQUIDITY_POOL_ADMIN_ROLE(), alice);
+        roleRegistry.grantRole(auctionInstance.AUCTION_ADMIN_ROLE(), alice);
+        roleRegistry.grantRole(etherFiAdminInstance.ETHERFI_ADMIN_ADMIN_ROLE(), alice);
+        roleRegistry.grantRole(nodeOperatorManagerInstance.NODE_OPERATOR_MANAGER_ADMIN_ROLE(), alice);
+        roleRegistry.grantRole(stakingManagerInstance.STAKING_MANAGER_ADMIN_ROLE(), alice);
+        roleRegistry.grantRole(withdrawRequestNFTInstance.WITHDRAW_NFT_ADMIN_ROLE(), alice);
+        roleRegistry.grantRole(etherFiOracleInstance.ORACLE_ADMIN_ROLE(), alice);
+        roleRegistry.grantRole(liquifierInstance.LIQUIFIER_ADMIN_ROLE(), alice);
+        roleRegistry.grantRole(liquidityPoolInstance.LIQUIDITY_POOL_ADMIN_ROLE(), chad);
         vm.stopPrank();
 
         vm.startPrank(owner);
@@ -800,15 +812,15 @@ contract TestSetup is Test {
         uint32[] memory  exitTimestamps = new uint32[](0);
         uint256[] memory slashedValidators = new uint256[](0);
         uint256[] memory withdrawalRequestsToInvalidate = new uint256[](0);
-        reportAtPeriod2A = IEtherFiOracle.OracleReport(1, 0, 1024 - 1, 0, 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtPeriod2B = IEtherFiOracle.OracleReport(1, 0, 1024 - 1, 0, 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 81, 19, 0, 0);
-        reportAtPeriod2C = IEtherFiOracle.OracleReport(2, 0, 1024 - 1, 0, 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 79, 21, 0, 0);
-        reportAtPeriod3 = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 0, 2048 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtPeriod3A = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 0, 3 * 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtPeriod3B = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 1, 2 * 1024 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtPeriod4 = IEtherFiOracle.OracleReport(1, 2 * 1024, 1024 * 3 - 1, 2 * 1024, 3 * 1024 - 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtSlot3071 = IEtherFiOracle.OracleReport(1, 2048, 3072 - 1, 2048, 3072 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
-        reportAtSlot4287 = IEtherFiOracle.OracleReport(1, 3264, 4288 - 1, 3264, 4288 - 1, 1, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod2A = IEtherFiOracle.OracleReport(1, 0, 1024 - 1, 0, 1024 - 1, 1, 0,validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod2B = IEtherFiOracle.OracleReport(1, 0, 1024 - 1, 0, 1024 - 1, 1, 0,validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 81, 19, 0, 0);
+        reportAtPeriod2C = IEtherFiOracle.OracleReport(2, 0, 1024 - 1, 0, 1024 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 79, 21, 0, 0);
+        reportAtPeriod3 = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 0, 2048 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod3A = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 0, 3 * 1024 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod3B = IEtherFiOracle.OracleReport(1, 0, 2048 - 1, 1, 2 * 1024 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtPeriod4 = IEtherFiOracle.OracleReport(1, 2 * 1024, 1024 * 3 - 1, 2 * 1024, 3 * 1024 - 1, 0, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtSlot3071 = IEtherFiOracle.OracleReport(1, 2048, 3072 - 1, 2048, 3072 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
+        reportAtSlot4287 = IEtherFiOracle.OracleReport(1, 3264, 4288 - 1, 3264, 4288 - 1, 1, 0, validatorsToApprove, validatorsToExit, exitedValidators, exitTimestamps, slashedValidators, withdrawalRequestsToInvalidate, 1, 80, 20, 0, 0);
     }
 
     function _merkleSetup() internal {
@@ -938,56 +950,14 @@ contract TestSetup is Test {
     }
 
     function _initializeEtherFiAdmin() internal {
-        vm.startPrank(owner);
-
-        etherFiAdminInstance.updatePauser(alice, true);
-        etherFiAdminInstance.updateAdmin(alice, true);
-        etherFiOracleInstance.updateAdmin(alice, true);
-
-        address admin = address(etherFiAdminInstance);
-        stakingManagerInstance.updateAdmin(admin, true); 
-        liquidityPoolInstance.updateAdmin(admin, true);
-        membershipManagerInstance.updateAdmin(admin, true);
-        withdrawRequestNFTInstance.updateAdmin(admin, true);
-        etherFiOracleInstance.updateAdmin(admin, true);
+        vm.startPrank(admin);
+        
+        roleRegistry.grantRole(stakingManagerInstance.STAKING_MANAGER_ADMIN_ROLE(), address(etherFiAdminInstance));
+        roleRegistry.grantRole(liquidityPoolInstance.LIQUIDITY_POOL_ADMIN_ROLE(), address(etherFiAdminInstance));
+        roleRegistry.grantRole(etherFiOracleInstance.ORACLE_ADMIN_ROLE(), address(etherFiAdminInstance));
+        roleRegistry.grantRole(withdrawRequestNFTInstance.WITHDRAW_NFT_ADMIN_ROLE(), address(etherFiAdminInstance));
 
         vm.stopPrank();
-    }
-
-    function _approveNodeOperators() internal {
-        address[] memory users = new address[](5);
-        users[0] = address(alice);
-        users[1] = address(bob);
-        users[2] = address(bob);
-        users[3] = address(owner);
-        users[4] = address(elvis);
-
-        ILiquidityPool.SourceOfFunds[] memory approvedTags = new ILiquidityPool.SourceOfFunds[](5);
-        approvedTags[0] = ILiquidityPool.SourceOfFunds.EETH;
-        approvedTags[1] = ILiquidityPool.SourceOfFunds.ETHER_FAN;
-        approvedTags[2] = ILiquidityPool.SourceOfFunds.EETH;
-        approvedTags[3] = ILiquidityPool.SourceOfFunds.EETH;
-        approvedTags[4] = ILiquidityPool.SourceOfFunds.EETH;
-
-        bool[] memory approvals = new bool[](5);
-        approvals[0] = true;
-        approvals[1] = true;
-        approvals[2] = true;
-        approvals[3] = true;
-        approvals[4] = true;
-
-        nodeOperatorManagerInstance.batchUpdateOperatorsApprovedTags(users, approvedTags, approvals);
-
-        address[] memory aliceUser = new address[](1);
-        aliceUser[0] = address(alice);
-
-        ILiquidityPool.SourceOfFunds[] memory aliceApprovedTags = new ILiquidityPool.SourceOfFunds[](1);
-        aliceApprovedTags[0] = ILiquidityPool.SourceOfFunds.ETHER_FAN;
-
-        bool[] memory aliceApprovals = new bool[](1);
-        aliceApprovals[0] = true;
-        nodeOperatorManagerInstance.batchUpdateOperatorsApprovedTags(aliceUser, aliceApprovedTags, aliceApprovals);
-
     }
 
     function _initReportBlockStamp(IEtherFiOracle.OracleReport memory _report) internal view {
@@ -1045,7 +1015,7 @@ contract TestSetup is Test {
         uint256[] memory emptyVals = new uint256[](0);
         uint32[] memory emptyVals32 = new uint32[](0);
         uint32 consensusVersion = etherFiOracleInstance.consensusVersion();
-        report = IEtherFiOracle.OracleReport(consensusVersion, 0, 0, 0, 0, 0, emptyVals, emptyVals, emptyVals, emptyVals32, emptyVals, emptyVals, 0, 0, 0, 0, 0);
+        report = IEtherFiOracle.OracleReport(consensusVersion, 0, 0, 0, 0, 0, 0, emptyVals, emptyVals, emptyVals, emptyVals32, emptyVals, emptyVals, 0, 0, 0, 0, 0);
     }
 
     function calculatePermitDigest(address _owner, address spender, uint256 value, uint256 nonce, uint256 deadline, bytes32 domainSeparator) public pure returns (bytes32) {
@@ -1075,7 +1045,7 @@ contract TestSetup is Test {
     }
 
     function registerAsBnftHolder(address _user) internal {
-        (bool registered, uint32 index) = liquidityPoolInstance.bnftHoldersIndexes(_user);
+        (bool registered) = liquidityPoolInstance.validatorSpawner(_user);
         if (!registered) liquidityPoolInstance.registerAsBnftHolder(_user);
     }
 
@@ -1101,13 +1071,11 @@ contract TestSetup is Test {
         vm.deal(henry, 100000 ether);
         vm.deal(chad, 100000 ether);
 
-        (bool registered, uint32 index) = liquidityPoolInstance.bnftHoldersIndexes(alice);
+        (bool registered) = liquidityPoolInstance.validatorSpawner(alice);
         assertEq(registered, true);
-        assertEq(index, 0);
 
-        (registered, index) = liquidityPoolInstance.bnftHoldersIndexes(henry);
+        (registered) = liquidityPoolInstance.validatorSpawner(henry);
         assertEq(registered, true);
-        assertEq(index, 7);
     }
 
     function depositAndRegisterValidator(bool restaked) public returns (uint256) {
@@ -1132,12 +1100,12 @@ contract TestSetup is Test {
 
         // deposit against that bid with restaking enabled
         vm.prank(address(liquidityPoolInstance));
-        stakingManagerInstance.batchDepositWithBidIds(createdBids, 1, alice, alice, alice, ILiquidityPool.SourceOfFunds.EETH, restaked, 0);
+        stakingManagerInstance.batchDepositWithBidIds(createdBids, 1, alice, alice, alice, restaked, 0);
 
         (IStakingManager.DepositData[] memory depositDataArray,,,) = _prepareForValidatorRegistration(createdBids);
         vm.deal(address(liquidityPoolInstance), 1 ether);
         vm.prank(address(liquidityPoolInstance));
-        stakingManagerInstance.batchRegisterValidators{value: 1 ether}(zeroRoot, createdBids, alice, alice, depositDataArray, alice);
+        stakingManagerInstance.batchRegisterValidators{value: 1 ether}(createdBids, alice, alice, depositDataArray, alice);
 
         return bidId;
     }
@@ -1191,21 +1159,6 @@ contract TestSetup is Test {
         }
         vm.stopPrank();
 
-        vm.startPrank(admin);
-        {
-            address[] memory users = new address[](2);
-            ILiquidityPool.SourceOfFunds[] memory approvedTags = new ILiquidityPool.SourceOfFunds[](2);
-            bool[] memory approvals = new bool[](2);
-            users[0] = _nodeOperator;
-            users[1] = _nodeOperator;
-            approvedTags[0] = ILiquidityPool.SourceOfFunds.EETH;
-            approvedTags[1] = ILiquidityPool.SourceOfFunds.ETHER_FAN;
-            approvals[0] = true;
-            approvals[1] = true;
-            nodeOperatorManagerInstance.batchUpdateOperatorsApprovedTags(users, approvedTags, approvals);
-        }
-        vm.stopPrank();
-
         vm.startPrank(_nodeOperator);
         uint256[] memory bidIds = auctionInstance.createBid{value: 0.1 ether * _numValidators}(_numValidators, 0.1 ether);
         vm.stopPrank();
@@ -1221,9 +1174,9 @@ contract TestSetup is Test {
         vm.prank(_bnftStaker);
         uint256[] memory newValidators;
         if (_isLpBnftHolder) {
-            newValidators = liquidityPoolInstance.batchDepositWithLiquidityPoolAsBnftHolder(bidIds, _numValidators, _validatorIdToCoUseWithdrawalSafe);
+            newValidators = liquidityPoolInstance.batchDeposit(bidIds, _numValidators, _validatorIdToCoUseWithdrawalSafe);
         } else {
-            newValidators = liquidityPoolInstance.batchDepositAsBnftHolder{value: 2 ether * _numValidators}(bidIds, _numValidators, _validatorIdToCoUseWithdrawalSafe);
+            newValidators = liquidityPoolInstance.batchDeposit{value: 2 ether * _numValidators}(bidIds, _numValidators, _validatorIdToCoUseWithdrawalSafe);
         }
 
         IStakingManager.DepositData[] memory depositDataArray = new IStakingManager.DepositData[](_numValidators);
@@ -1264,12 +1217,7 @@ contract TestSetup is Test {
         }
 
         vm.startPrank(_bnftStaker);
-        bytes32 depositRoot = zeroRoot;
-        if (_isLpBnftHolder) {
-            liquidityPoolInstance.batchRegisterWithLiquidityPoolAsBnftHolder(depositRoot, newValidators, depositDataArray, depositDataRootsForApproval, sig);
-        } else {
-            liquidityPoolInstance.batchRegisterAsBnftHolder(depositRoot, newValidators, depositDataArray, depositDataRootsForApproval, sig);
-        }
+        liquidityPoolInstance.batchRegister(newValidators, depositDataArray, depositDataRootsForApproval, sig);
         vm.stopPrank();
 
         vm.startPrank(admin);
