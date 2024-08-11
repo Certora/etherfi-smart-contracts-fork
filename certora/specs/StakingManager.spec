@@ -13,9 +13,9 @@ methods {
 
     function initialize(address, address) external;
     function initializeOnUpgrade(address, address) external;
-    function batchDepositWithBidIds(uint256[], uint256, address, address, address, bool, uint256) external returns (uint256[] memory);
+    function batchDepositWithBidIds(uint256[], uint256, address, address, bool, uint256) external returns (uint256[] memory);
     function batchCancelDeposit(uint256[], address) external;
-    function batchRegisterValidators(uint256[], address, address, IStakingManager.DepositData[], address) external;
+    function batchRegisterValidators(uint256[], address, address, IStakingManager.DepositData[]) external;
     function batchApproveRegistration(uint256[], bytes[], bytes[], bytes32[]) external;
 
     function _.upgradeToAndCall(address,bytes) external => NONDET;
@@ -76,7 +76,6 @@ rule integrityOfBatchDepositWithBidIds(uint256 bidID) {
     env e;
     uint256[] candidateBidIds = [bidID];
     uint256 numOfValidators;
-    address validatorSpawner;
     address tnftHolder; 
     address bnftHolder;
     bool enableRestaking;
@@ -89,12 +88,12 @@ rule integrityOfBatchDepositWithBidIds(uint256 bidID) {
     bool isActiveBefore = auctionManager.isBidActive(bidID);
     stakerBefore, _, _ = bidIdToStakerInfo(bidID);
 
-    batchDepositWithBidIds(e, candidateBidIds, numOfValidators, validatorSpawner, tnftHolder, bnftHolder, enableRestaking, validatorIds);
+    batchDepositWithBidIds(e, candidateBidIds, numOfValidators, tnftHolder, bnftHolder, enableRestaking, validatorIds);
 
     bool isActiveAfter = auctionManager.isBidActive(bidID);
     stakerAfter, _, _ = bidIdToStakerInfo(bidID);
 
-    assert (stakerBefore == 0 && isActiveBefore && numOfValidators > 0) => stakerAfter == validatorSpawner && !isActiveAfter;
+    assert (stakerBefore == 0 && isActiveBefore && numOfValidators > 0) => stakerAfter == bnftHolder && !isActiveAfter;
 }
 
 rule integrityOfBatchCancelDeposit(uint256 validatorId, address caller) {
@@ -173,7 +172,6 @@ rule batchDepositFR(method f, uint256 bidID)
     require eFr.msg.sender != 0;
     uint256[] candidateBidIds = [bidID];
     uint256 numOfValidators;
-    address validatorSpawner;
     address tnftHolder; 
     address bnftHolder;
     bool enableRestaking;
@@ -181,11 +179,11 @@ rule batchDepositFR(method f, uint256 bidID)
 
     storage initState = lastStorage; 
 
-    batchDepositWithBidIds(e, candidateBidIds, numOfValidators, validatorSpawner, tnftHolder, bnftHolder, enableRestaking, validatorIds);
+    batchDepositWithBidIds(e, candidateBidIds, numOfValidators, tnftHolder, bnftHolder, enableRestaking, validatorIds);
 
     f(eFr, args) at initState;
 
-    batchDepositWithBidIds@withrevert(e, candidateBidIds, numOfValidators, validatorSpawner, tnftHolder, bnftHolder, enableRestaking, validatorIds);
+    batchDepositWithBidIds@withrevert(e, candidateBidIds, numOfValidators, tnftHolder, bnftHolder, enableRestaking, validatorIds);
 
     bool didRvert = lastReverted;
 
@@ -259,14 +257,13 @@ rule integrityOfBatchRegisterValidators(uint256 validatorId) {
     address bNftRecipient;
     address tNftRecipient;
     IStakingManager.DepositData[] depositData;
-    address validatorSpawner;
 
     // LiquidityPool requirements:
     require depositData.length == validatorIds.length;
 
     uint256 contractBalancePre = nativeBalances[currentContract];
 
-    batchRegisterValidators(e, validatorIds, bNftRecipient, tNftRecipient, depositData, validatorSpawner);
+    batchRegisterValidators(e, validatorIds, bNftRecipient, tNftRecipient, depositData);
 
     uint8 _validatorPhase = validatorPhase[validatorId];
     uint256 contractBalancePost = nativeBalances[currentContract];
