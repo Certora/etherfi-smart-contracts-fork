@@ -194,7 +194,7 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
     /// it returns the amount of shares burned
     function withdraw(address _recipient, uint256 _amount) external whenNotPaused returns (uint256) {
         uint256 share = sharesForWithdrawalAmount(_amount);
-        require(msg.sender == address(withdrawRequestNFT) || msg.sender == address(membershipManager), "Incorrect Caller");
+        require(msg.sender == address(withdrawRequestNFT) || msg.sender == address(membershipManager) || msg.sender == address(liquifier), "Incorrect Caller");
         if (totalValueInLp < _amount || (msg.sender == address(withdrawRequestNFT) && ethAmountLockedForWithdrawal < _amount) || eETH.balanceOf(msg.sender) < _amount) revert InsufficientLiquidity();
         if (_amount > type(uint128).max || _amount == 0 || share == 0) revert InvalidAmount();
 
@@ -205,7 +205,9 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
 
         eETH.burnShares(msg.sender, share);
 
-        _sendFund(_recipient, _amount);
+        if (_recipient != address(this)) {
+            _sendFund(_recipient, _amount);
+        }
 
         return share;
     }
@@ -291,7 +293,7 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
         require(msg.value == _numberOfValidators * spawnerDepositAmountPerValidator, "Not Enough Deposit");
         require(totalValueInLp + msg.value >= 32 ether * _numberOfValidators, "Not enough balance");
 
-        uint256[] memory newValidators = stakingManager.batchDepositWithBidIds(_candidateBidIds, _numberOfValidators, msg.sender, tnftHolder, bnftHolder, restakeBnftDeposits, _validatorIdToShareSafeWith);
+        uint256[] memory newValidators = stakingManager.batchDepositWithBidIds(_candidateBidIds, _numberOfValidators, tnftHolder, bnftHolder, restakeBnftDeposits, _validatorIdToShareSafeWith);
         numPendingDeposits += uint32(newValidators.length);
         
         // In the case when some bids are already taken, we refund 2 ETH for each
@@ -325,7 +327,7 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
         uint256 outboundEthAmountFromLp = isLpBnftHolder ? 1 ether * _validatorIds.length : 0;
         _accountForEthSentOut(outboundEthAmountFromLp);
 
-        stakingManager.batchRegisterValidators{value: 1 ether * _validatorIds.length}(_validatorIds, _bnftRecipient, address(this), _registerValidatorDepositData, msg.sender);
+        stakingManager.batchRegisterValidators{value: 1 ether * _validatorIds.length}(_validatorIds, _bnftRecipient, address(this), _registerValidatorDepositData);
         
         for(uint256 i; i < _validatorIds.length; i++) {
             depositDataRootForApprovalDeposits[_validatorIds[i]] = _depositDataRootApproval[i];
@@ -472,7 +474,7 @@ contract LiquidityPool is Initializable, OwnableUpgradeable, UUPSUpgradeable, IL
     }
 
     function addEthAmountLockedForWithdrawal(uint128 _amount) external {
-        if (!(msg.sender == address(etherFiAdminContract) || msg.sender == address(withdrawRequestNFT))) revert IncorrectCaller();
+        if (msg.sender != address(withdrawRequestNFT)) revert IncorrectCaller();
 
         ethAmountLockedForWithdrawal += _amount;
     }
