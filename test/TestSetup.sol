@@ -393,11 +393,17 @@ contract TestSetup is Test {
         etherFiTimelockInstance = EtherFiTimelock(payable(addressProviderInstance.getContractAddress("EtherFiTimelock")));
         etherFiAdminInstance = EtherFiAdmin(payable(addressProviderInstance.getContractAddress("EtherFiAdmin")));
         etherFiOracleInstance = EtherFiOracle(payable(addressProviderInstance.getContractAddress("EtherFiOracle")));
+
+        // _upgrade_contracts();
     }
 
     function setUpLiquifier(uint8 forkEnum) internal {
         // intialize `pauser` and `roleRegistry` for testing against V2.5
         vm.startPrank(owner);
+
+        if (liquifierInstance.paused()) {
+            liquifierInstance.unPauseContract();
+        }
 
         address impl = address(new BucketRateLimiter());
         bucketRateLimiter = BucketRateLimiter(address(new UUPSProxy(impl, "")));
@@ -406,15 +412,11 @@ contract TestSetup is Test {
 
         bucketRateLimiter.setCapacity(40 ether);
         bucketRateLimiter.setRefillRatePerSecond(1 ether);
+        vm.stopPrank();
 
-        if (forkEnum == MAINNET_FORK || forkEnum == TESTNET_FORK) {
-            liquifierInstance.upgradeTo(address(new Liquifier()));
-            liquifierInstance.initializeV2dot5(address(roleRegistry), address(pauserInstance));
-        }
+        setupRoleRegistry();
 
         vm.warp(block.timestamp + 1 days);
-
-        vm.stopPrank();
     }
 
 
@@ -592,6 +594,19 @@ contract TestSetup is Test {
             address(eigenLayerDelayedWithdrawalRouter),
             address(eigenLayerDelegationManager)
         );
+
+        nodeOperatorManagerInstance.setAuctionContractAddress(address(auctionInstance));
+
+        auctionInstance.setStakingManagerContractAddress(address(stakingManagerInstance));
+
+        protocolRevenueManagerInstance.setAuctionManagerAddress(address(auctionInstance));
+        protocolRevenueManagerInstance.setEtherFiNodesManagerAddress(address(managerInstance));
+
+        stakingManagerInstance.setEtherFiNodesManagerAddress(address(managerInstance));
+        stakingManagerInstance.setLiquidityPoolAddress(address(liquidityPoolInstance));
+        stakingManagerInstance.registerEtherFiNodeImplementationContract(address(node));
+        stakingManagerInstance.registerTNFTContract(address(TNFTInstance));
+        stakingManagerInstance.registerBNFTContract(address(BNFTInstance));
         vm.stopPrank();
 
         // configure starting roles
@@ -624,7 +639,7 @@ contract TestSetup is Test {
 
         vm.stopPrank();
 
-        vm.startPrank(alice);
+        vm.startPrank(admin);
         managerInstance.setStakingRewardsSplit(50_000, 50_000, 815_625, 84_375);
         managerInstance.setNonExitPenalty(300, 1 ether);
         membershipManagerInstance.setTopUpCooltimePeriod(28 days);
@@ -691,20 +706,6 @@ contract TestSetup is Test {
         vm.stopPrank();
 
         vm.startPrank(owner);
-        nodeOperatorManagerInstance.setAuctionContractAddress(address(auctionInstance));
-
-        auctionInstance.setStakingManagerContractAddress(address(stakingManagerInstance));
-
-        protocolRevenueManagerInstance.setAuctionManagerAddress(address(auctionInstance));
-        protocolRevenueManagerInstance.setEtherFiNodesManagerAddress(address(managerInstance));
-
-        stakingManagerInstance.setEtherFiNodesManagerAddress(address(managerInstance));
-        stakingManagerInstance.setLiquidityPoolAddress(address(liquidityPoolInstance));
-        stakingManagerInstance.registerEtherFiNodeImplementationContract(address(node));
-        stakingManagerInstance.registerTNFTContract(address(TNFTInstance));
-        stakingManagerInstance.registerBNFTContract(address(BNFTInstance));
-
-
         depGen = new DepositDataGeneration();
 
         attacker = new Attacker(address(liquidityPoolInstance));
@@ -727,11 +728,12 @@ contract TestSetup is Test {
     }
 
     function setupRoleRegistry() public {
-
         // TODO: I don't love the coupling here but it was too easy to make tests
         // where the roleRegistry global var diverged from the one set in the manager instance.
         // We should work toward a better system that for each contract, will deploy+initialize
         // proxy if it doesn't exist, or upgrade to the latest version otherwise
+        _upgrade_contracts();
+
         if (address(managerInstance.roleRegistry()) == address(0x0)) {
 
             // deploy new versions of role registry
@@ -783,6 +785,7 @@ contract TestSetup is Test {
 
         // Grant contract specific admin roles replacement for `updateAdmin(alice, true);` from protocol V2
         roleRegistry.grantRole(liquidityPoolInstance.LIQUIDITY_POOL_ADMIN_ROLE(), alice);
+        roleRegistry.grantRole(liquidityPoolInstance.LIQUIDITY_POOL_ADMIN_ROLE(), owner);
         roleRegistry.grantRole(auctionInstance.AUCTION_ADMIN_ROLE(), alice);
         roleRegistry.grantRole(etherFiAdminInstance.ETHERFI_ADMIN_ADMIN_ROLE(), alice);
         roleRegistry.grantRole(nodeOperatorManagerInstance.NODE_OPERATOR_MANAGER_ADMIN_ROLE(), alice);
@@ -956,6 +959,7 @@ contract TestSetup is Test {
         roleRegistry.grantRole(liquidityPoolInstance.LIQUIDITY_POOL_ADMIN_ROLE(), address(etherFiAdminInstance));
         roleRegistry.grantRole(etherFiOracleInstance.ORACLE_ADMIN_ROLE(), address(etherFiAdminInstance));
         roleRegistry.grantRole(withdrawRequestNFTInstance.WITHDRAW_NFT_ADMIN_ROLE(), address(etherFiAdminInstance));
+        roleRegistry.grantRole(etherFiAdminInstance.ETHERFI_ADMIN_ADMIN_ROLE(), address(etherFiOracleInstance));
 
         vm.stopPrank();
     }
@@ -1100,12 +1104,12 @@ contract TestSetup is Test {
 
         // deposit against that bid with restaking enabled
         vm.prank(address(liquidityPoolInstance));
-        stakingManagerInstance.batchDepositWithBidIds(createdBids, 1, alice, alice, alice, restaked, 0);
+        stakingManagerInstance.batchDepositWithBidIds(createdBids, 1, alice, alice, restaked, 0);
 
         (IStakingManager.DepositData[] memory depositDataArray,,,) = _prepareForValidatorRegistration(createdBids);
         vm.deal(address(liquidityPoolInstance), 1 ether);
         vm.prank(address(liquidityPoolInstance));
-        stakingManagerInstance.batchRegisterValidators{value: 1 ether}(createdBids, alice, alice, depositDataArray, alice);
+        stakingManagerInstance.batchRegisterValidators{value: 1 ether}(createdBids, alice, alice, depositDataArray);
 
         return bidId;
     }
@@ -1232,11 +1236,6 @@ contract TestSetup is Test {
         withdrawRequestNFTInstance.finalizeRequests(_requestId);
         uint128 amount = withdrawRequestNFTInstance.getRequest(_requestId).amountOfEEth;
         vm.stopPrank();
-
-        if (withdrawRequestNFTInstance.isValid(_requestId)) {
-            vm.prank(address(etherFiAdminInstance));
-            liquidityPoolInstance.addEthAmountLockedForWithdrawal(amount);
-        }
     }
 
     function _upgrade_multiple_validators_per_safe() internal {
@@ -1311,6 +1310,26 @@ contract TestSetup is Test {
         vm.stopPrank();
     }
 
+    function _upgrade_contracts() internal {
+        _upgrade_auction_manager_contract();
+        _upgrade_staking_manager_contract();
+        _upgrade_node_oeprator_manager_contract();
+        _upgrade_etherfi_node_contract();
+        _upgrade_etherfi_nodes_manager_contract();
+        _upgrade_tnft_contract();
+        _upgrade_bnft_contract();
+
+        _upgrade_liquidity_pool_contract();
+        _upgrade_eEth_contract();
+        _upgrade_weEth_contract();
+        _upgrade_withdraw_request_nft();
+
+        _upgrade_etherfi_oracle_contract();
+        _upgrade_etherfi_admin_contract();
+
+        _upgrade_liquifier();
+    }
+
     function _upgrade_etherfi_node_contract() internal {
         EtherFiNode etherFiNode = new EtherFiNode();
         address newImpl = address(etherFiNode);
@@ -1354,10 +1373,46 @@ contract TestSetup is Test {
         etherFiOracleInstance.upgradeTo(newImpl);
     }
 
+    function _upgrade_etherfi_admin_contract() internal {
+        address newImpl = address(new EtherFiAdmin());
+        vm.prank(etherFiAdminInstance.owner());
+        etherFiAdminInstance.upgradeTo(newImpl);
+    }
+
     function _upgrade_liquifier() internal {
         address newImpl = address(new Liquifier());
         vm.prank(liquifierInstance.owner());
         liquifierInstance.upgradeTo(newImpl);
+    }
+
+    function _upgrade_withdraw_request_nft() internal {
+        address newImpl = address(new WithdrawRequestNFT());
+        vm.prank(withdrawRequestNFTInstance.owner());
+        withdrawRequestNFTInstance.upgradeTo(newImpl);
+    }
+
+    function _upgrade_eEth_contract() internal {
+        address newImpl = address(new EETH());
+        vm.prank(eETHInstance.owner());
+        eETHInstance.upgradeTo(newImpl);
+    }
+
+    function _upgrade_weEth_contract() internal {
+        address newImpl = address(new WeETH());
+        vm.prank(weEthInstance.owner());
+        weEthInstance.upgradeTo(newImpl);
+    }
+
+    function _upgrade_tnft_contract() internal {
+        address newImpl = address(new TNFT());
+        vm.prank(TNFTInstance.owner());
+        TNFTInstance.upgradeTo(newImpl);
+    }
+
+    function _upgrade_bnft_contract() internal {
+        address newImpl = address(new BNFT());
+        vm.prank(BNFTInstance.owner());
+        BNFTInstance.upgradeTo(newImpl);
     }
 
     function _to_uint256_array(uint256 _value) internal pure returns (uint256[] memory) {
