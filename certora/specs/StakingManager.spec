@@ -47,18 +47,7 @@ definition isFilteredFunc(method f) returns bool = (
 
 definition wei() returns uint256 = 1000000000000000000;
 
-// struct DepositData {
-//         bytes publicKey;
-//         bytes signature;
-//         bytes32 depositDataRoot;
-//         string ipfsHashForEncryptedValidatorKey;
-//     }
-
-// struct StakerInfo {
-//         address staker;
-//         bytes1 dummy;
-//         bytes10 hash;
-//     }
+// rule for research purpose.
 rule whoLeaveEth(method f, address membershipAddress) 
     filtered { f -> !isFilteredFunc(f) } {
     env e;
@@ -107,23 +96,25 @@ rule integrityOfBatchCancelDeposit(uint256 validatorId, address caller) {
     mathint ethBalanceBefore = nativeBalances[e.msg.sender];
 
     stakerBefore, _, _ = bidIdToStakerInfo(validatorId);
+    uint8 phasePre = validatorPhase[validatorId];
+    mathint tnftAmountPre = sumAllTNFT;
+    mathint bnftAmountPre = sumAllBNFT;
 
     batchCancelDeposit(e, validatorIds, caller);
 
     stakerAfter, _, _ = bidIdToStakerInfo(validatorId);
     mathint ethBalanceAfter = nativeBalances[e.msg.sender];
     bool isActiveAfter = auctionManager.isBidActive(validatorId);
+    mathint tnftAmountPost = sumAllTNFT;
+    mathint bnftAmountPost = sumAllBNFT;
 
     assert stakerBefore == caller && stakerAfter == 0, "wrong staker settings";
-    assert ethBalanceAfter == ethBalanceBefore + 32, "stake didn't fully refunded";
+    assert liquidityPoolContract() != e.msg.sender => ethBalanceAfter == ethBalanceBefore + 32, "stake didn't fully refunded";
     assert isActiveAfter, "The bid didn't reenter the auction";
+    assert phasePre == 8 => (tnftAmountPost == tnftAmountPre - 1) &&
+                            (bnftAmountPost == bnftAmountPre - 1), "nfts wasn't burned when pre validator phase was WAITING_FOR_APPROVAL";
+    assert phasePre == 8 => bnft.ownerOf(e, validatorId) == 0 && tnft.ownerOf(e, validatorId) == 0, "wrong nfts were burned";
 }
-
-// tokens are burned:
-// TNFTInterfaceInstance.burnFromCancelBNftFlow(nftTokenId);
-// BNFTInterfaceInstance.burnFromCancelBNftFlow(nftTokenId);
-// no token owner
-// owner nftBalance decresed by 1 for each token burned
 
 rule batchCancelDepositFR(method f, uint256 validatorId, address caller) 
     filtered { f -> !isFilteredFunc(f)  
@@ -137,7 +128,7 @@ rule batchCancelDepositFR(method f, uint256 validatorId, address caller)
     require e.msg.sender != currentContract;
     require e.msg.sender != auctionManager;
     require eFr.msg.sender != currentContract;
-    require eFr.msg.sender != auctionManager;
+    // require eFr.msg.sender != auctionManager;
     require e.msg.sender != 0;
     require eFr.msg.sender != 0;
     uint256[] validatorIds = [validatorId];
@@ -155,7 +146,7 @@ rule batchCancelDepositFR(method f, uint256 validatorId, address caller)
     assert !didRvert;    
 }
 
-rule batchDepositFR(method f, uint256 bidID) 
+rule batchDepositFR(method f) 
     filtered { f -> !isFilteredFunc(f)  
                 && f.selector != sig:pauseContract().selector
                 || f.selector != sig:instantiateEtherFiNode(bool).selector
@@ -167,23 +158,18 @@ rule batchDepositFR(method f, uint256 bidID)
     require e.msg.sender != currentContract;
     require e.msg.sender != auctionManager;
     require eFr.msg.sender != currentContract;
-    require eFr.msg.sender != auctionManager;
+    // require eFr.msg.sender != auctionManager;
     require e.msg.sender != 0;
     require eFr.msg.sender != 0;
-    uint256[] candidateBidIds = [bidID];
-    uint256 numOfValidators;
-    address tnftHolder; 
-    address bnftHolder;
-    bool enableRestaking;
-    uint256 validatorIds;
+    calldataarg specificArgs;
 
     storage initState = lastStorage; 
 
-    batchDepositWithBidIds(e, candidateBidIds, numOfValidators, tnftHolder, bnftHolder, enableRestaking, validatorIds);
+    batchDepositWithBidIds(e, specificArgs);
 
     f(eFr, args) at initState;
 
-    batchDepositWithBidIds@withrevert(e, candidateBidIds, numOfValidators, tnftHolder, bnftHolder, enableRestaking, validatorIds);
+    batchDepositWithBidIds@withrevert(e, specificArgs);
 
     bool didRvert = lastReverted;
 
@@ -203,7 +189,7 @@ rule batchRegisterValidatorsFR(method f, uint256 bidID)
     require e.msg.sender != currentContract;
     require e.msg.sender != auctionManager;
     require eFr.msg.sender != currentContract;
-    require eFr.msg.sender != auctionManager;
+    // require eFr.msg.sender != auctionManager;
     require e.msg.sender != 0;
     require eFr.msg.sender != 0;
 
@@ -233,7 +219,7 @@ rule batchApproveRegistrationFR(method f, uint256 bidID)
     require e.msg.sender != currentContract;
     require e.msg.sender != auctionManager;
     require eFr.msg.sender != currentContract;
-    require eFr.msg.sender != auctionManager;
+    // require eFr.msg.sender != auctionManager;
     require e.msg.sender != 0;
     require eFr.msg.sender != 0;
 
