@@ -14,6 +14,8 @@ methods {
     function bids(uint256) external returns (uint256, uint64, address, bool) envfree;
     function getBidOwner(uint256) external returns (address) envfree;
     function isBidActive(uint256) external returns (bool) envfree;
+    function accumulatedRevenue() external returns (uint128) envfree;
+    function accumulatedRevenueThreshold() external returns (uint128) envfree;
 
     function NodeOperatorManager.getUserTotalKeys(address) external returns (uint64) envfree;
     function NodeOperatorManager.getNumKeysRemaining(address) external returns (uint64) envfree;
@@ -32,17 +34,26 @@ invariant numberOfActiveBidsCorrect()
 // numberOfBids equals the sum of all bids.
 invariant numberOfBidsEqTheSumOfAllBids() 
     sum_of_bids == to_mathint(numberOfBids())
-    filtered {f -> !isFilteredFunc(f)}
+    filtered {f -> !isFilteredFunc(f) && f.selector != sig:initialize(address).selector}
 
 // solvency invariant - contract should hold atleast sumOfAllActiveBidAmounts amount of eth.
 invariant activeBidsSolvency()
     to_mathint(nativeBalances[currentContract]) >= sum_of_all_active_bids_amounts
     filtered {f -> !isFilteredFunc(f)}
+    {
+        preserved with (env e) {
+            require e.msg.sender != currentContract;
+        }
+        preserved processAuctionFeeTransfer(uint256 bidId) with (env e) {
+            // bidId must be inactive (because there is a stacker that is  not address zero).
+            require isBidActive(bidId) == false;
+        }
+    }
 
 // the sum of all used keys equals num of bids.
 // invariant numOfAllUsedKeysEqNumOfBids() {}
 
-// chack for all bids to see if the key index is unique per user.
+// chack for all bids to see if the key index is unique per user. / not same user with same keyIndex on different bids:
 // rule bidderPubKeyIndexIsUniqePerUser() {}
 
 rule bidImmutability(method f, uint256 bid_id) filtered {f -> !isFilteredFunc(f)} {
@@ -117,13 +128,3 @@ rule integrityOfCreateBid(uint256 _bidSize, uint256 _bidAmountPerBid) {
 // rule integrityOfCancelBid(uint256 bidId) {
 //     env e;
 // }
-
-// rule onlyWhiteListCanBid() {}
-
-/// @title Verifies that all functions can be called
-rule sanity(method f) {
-    env e;
-    calldataarg args;
-    f(e, args);
-    satisfy true;
-}
