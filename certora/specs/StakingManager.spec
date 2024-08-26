@@ -27,18 +27,17 @@ methods {
     function _.registerValidator(uint256, bool, address) external => NONDET;
     function _.unregisterValidator(uint256) external => CONSTANT;
     function _.getWithdrawalCredentials(uint256) external => NONDET;
-    function _.incrementNumberOfValidators(uint256) external => NONDET;
-
+    function _.incrementNumberOfValidators(uint64) external => NONDET;
     function _.generateDepositRoot(bytes, bytes, bytes, uint256) external => NONDET;
-
-    // roleRegistry summaries:
-    // function _.hasRole(address) external => NONDET;
-    // function hasRole(bytes32, address) external => NONDET;
 
     function auctionManager.numberOfActiveBids() external returns (uint256) envfree;
     function auctionManager.isBidActive(uint256) external returns (bool) envfree;
     function auctionManager.membershipManagerContractAddress() external returns (address) envfree;
+    function auctionManager.processAuctionFeeTransfer(uint256) external => NONDET;
 }
+
+use invariant sumAllTNFTEqSumAllTNFTBalances;
+use invariant sumAllBNFTEqSumAllBNFTBalances;
 
 // Functions filtered out since they use `delegatecall`.
 definition isFilteredFunc(method f) returns bool = (
@@ -59,7 +58,6 @@ rule whoLeaveEth(method f, address membershipAddress)
     uint256 contractBalancePost = nativeBalances[currentContract];
     assert contractBalancePre == contractBalancePost;
 }
-
 
 rule integrityOfBatchDepositWithBidIds(uint256 bidID) {
     env e;
@@ -238,6 +236,7 @@ rule batchApproveRegistrationFR(method f, uint256 bidID)
 
 rule integrityOfBatchRegisterValidators(uint256 validatorId) {
     env e;
+    require e.msg.sender != currentContract;
     uint256 value = e.msg.value; // == wei() * validatorIds.length
     uint256[] validatorIds = [validatorId];
     address bNftRecipient;
@@ -248,16 +247,25 @@ rule integrityOfBatchRegisterValidators(uint256 validatorId) {
     require depositData.length == validatorIds.length;
 
     uint256 contractBalancePre = nativeBalances[currentContract];
+    mathint tnftAmountPre = sumAllTNFT;
+    mathint bnftAmountPre = sumAllBNFT;
 
     batchRegisterValidators(e, validatorIds, bNftRecipient, tNftRecipient, depositData);
 
     uint8 _validatorPhase = validatorPhase[validatorId];
     uint256 contractBalancePost = nativeBalances[currentContract];
+    mathint tnftAmountPost = sumAllTNFT;
+    mathint bnftAmountPost = sumAllBNFT;
 
     // assert validator phase:
     assert _validatorPhase == 2 || _validatorPhase == 8;
-    // processAuctionFeeTransfer
+    // processAuctionFeeTransfer - not needed, covered by auctionManager spec.
     // NFTS are correctly minted.
+    assert contractBalancePre == contractBalancePost, "eth was left in the contract";
+    assert tnftAmountPost == tnftAmountPre + 1, "tnft wasn't minted";
+    assert bnftAmountPost == bnftAmountPre + 1, "bnft wasn't minted";
+    assert tnft.ownerOf(e, validatorId) == tNftRecipient, "tnft was minted for the wrong user";
+    assert bnft.ownerOf(e, validatorId) == bNftRecipient, "bnft was minted for the wrong user";
 }
 
 rule integrityOfBatchApproveRegistration(uint256 validatorId) {
@@ -279,5 +287,3 @@ rule integrityOfBatchApproveRegistration(uint256 validatorId) {
     // assert validator phase:
     satisfy true;
 }
-
-
