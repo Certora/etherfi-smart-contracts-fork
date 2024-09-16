@@ -98,10 +98,10 @@ hook Sload uint256 count bnft._balances[KEY address owner] {
     require count == bntBalances[owner];
 }
 
-// amount of tnfts with owner equals the sum of every tnft owner balance.
+// amount of tnfts with owner equals the sum of every tnft owner balance. - should fail
 invariant sumAllTNFTEqSumAllTNFTBalances()
     sumAllTNFTBalances == sumAllTNFT;
 
-// amount of bnfts with owner equals the sum of every bnft owner balance.
+// amount of bnfts with owner equals the sum of every bnft owner balance. - should fail
 invariant sumAllBNFTEqSumAllBNFTBalances()
     sumAllBNFTBalances == sumAllBNFT;

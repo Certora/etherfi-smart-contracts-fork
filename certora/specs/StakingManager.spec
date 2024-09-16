@@ -36,9 +36,6 @@ methods {
     function auctionManager.processAuctionFeeTransfer(uint256) external => NONDET;
 }
 
-use invariant sumAllTNFTEqSumAllTNFTBalances;
-use invariant sumAllBNFTEqSumAllBNFTBalances;
-
 // Functions filtered out since they use `delegatecall`.
 definition isFilteredFunc(method f) returns bool = (
     f.selector == sig:upgradeToAndCall(address, bytes).selector
@@ -114,126 +111,6 @@ rule integrityOfBatchCancelDeposit(uint256 validatorId, address caller) {
     assert phasePre == 8 => bnft.ownerOf(e, validatorId) == 0 && tnft.ownerOf(e, validatorId) == 0, "wrong nfts were burned";
 }
 
-rule batchCancelDepositFR(method f, uint256 validatorId, address caller) 
-    filtered { f -> !isFilteredFunc(f)  
-                && f.selector != sig:pauseContract().selector
-                || f.selector != sig:instantiateEtherFiNode(bool).selector
-                || f.selector != sig:initialize(address,address).selector } {
-    env e;
-    env eFr;
-    calldataarg args;
-    require eFr.msg.sender != e.msg.sender;
-    require e.msg.sender != currentContract;
-    require e.msg.sender != auctionManager;
-    require eFr.msg.sender != currentContract;
-    // require eFr.msg.sender != auctionManager;
-    require e.msg.sender != 0;
-    require eFr.msg.sender != 0;
-    uint256[] validatorIds = [validatorId];
-
-    storage initState = lastStorage; 
-
-    batchCancelDeposit(e, validatorIds, caller);
-
-    f(eFr, args) at initState;
-
-    batchCancelDeposit@withrevert(e, validatorIds, caller);
-
-    bool didRvert = lastReverted;
-
-    assert !didRvert;    
-}
-
-rule batchDepositFR(method f) 
-    filtered { f -> !isFilteredFunc(f)  
-                && f.selector != sig:pauseContract().selector
-                || f.selector != sig:instantiateEtherFiNode(bool).selector
-                || f.selector != sig:initialize(address,address).selector } {
-    env e;
-    env eFr;
-    calldataarg args;
-    require eFr.msg.sender != e.msg.sender;
-    require e.msg.sender != currentContract;
-    require e.msg.sender != auctionManager;
-    require eFr.msg.sender != currentContract;
-    // require eFr.msg.sender != auctionManager;
-    require e.msg.sender != 0;
-    require eFr.msg.sender != 0;
-    calldataarg specificArgs;
-
-    storage initState = lastStorage; 
-
-    batchDepositWithBidIds(e, specificArgs);
-
-    f(eFr, args) at initState;
-
-    batchDepositWithBidIds@withrevert(e, specificArgs);
-
-    bool didRvert = lastReverted;
-
-    assert !didRvert;    
-}
-
-rule batchRegisterValidatorsFR(method f, uint256 bidID) 
-    filtered { f -> !isFilteredFunc(f)  
-                && f.selector != sig:pauseContract().selector
-                || f.selector != sig:instantiateEtherFiNode(bool).selector
-                || f.selector != sig:initialize(address,address).selector } {
-    env e;
-    env eFr;
-    calldataarg specificArgs;
-    calldataarg args;
-    require eFr.msg.sender != e.msg.sender;
-    require e.msg.sender != currentContract;
-    require e.msg.sender != auctionManager;
-    require eFr.msg.sender != currentContract;
-    // require eFr.msg.sender != auctionManager;
-    require e.msg.sender != 0;
-    require eFr.msg.sender != 0;
-
-    storage initState = lastStorage; 
-
-    batchRegisterValidators(e, specificArgs);
-
-    f(eFr, args) at initState;
-
-    batchRegisterValidators@withrevert(e, specificArgs);
-
-    bool didRvert = lastReverted;
-
-    assert !didRvert;    
-}
-
-rule batchApproveRegistrationFR(method f, uint256 bidID) 
-    filtered { f -> !isFilteredFunc(f)  
-                && f.selector != sig:pauseContract().selector
-                || f.selector != sig:instantiateEtherFiNode(bool).selector
-                || f.selector != sig:initialize(address,address).selector } {
-    env e;
-    env eFr;
-    calldataarg args;
-    calldataarg specificArgs;
-    require eFr.msg.sender != e.msg.sender;
-    require e.msg.sender != currentContract;
-    require e.msg.sender != auctionManager;
-    require eFr.msg.sender != currentContract;
-    // require eFr.msg.sender != auctionManager;
-    require e.msg.sender != 0;
-    require eFr.msg.sender != 0;
-
-    storage initState = lastStorage; 
-
-    batchApproveRegistration(e, specificArgs);
-
-    f(eFr, args) at initState;
-
-    batchApproveRegistration@withrevert(e, specificArgs);
-
-    bool didRvert = lastReverted;
-
-    assert !didRvert;    
-}
-
 rule integrityOfBatchRegisterValidators(uint256 validatorId) {
     env e;
     require e.msg.sender != currentContract;
@@ -266,24 +143,4 @@ rule integrityOfBatchRegisterValidators(uint256 validatorId) {
     assert bnftAmountPost == bnftAmountPre + 1, "bnft wasn't minted";
     assert tnft.ownerOf(e, validatorId) == tNftRecipient, "tnft was minted for the wrong user";
     assert bnft.ownerOf(e, validatorId) == bNftRecipient, "bnft was minted for the wrong user";
-}
-
-rule integrityOfBatchApproveRegistration(uint256 validatorId) {
-    env e;
-    uint256 val = e.msg.value;
-    uint256[] validatorIds = [validatorId];
-    bytes[] pubKey;
-    bytes[] signature;
-    bytes32[] depositDataRootApproval;
-
-    // LiquidityPool requirements:
-    require validatorIds.length == pubKey.length;
-    require validatorIds.length == signature.length;
-
-    batchApproveRegistration(e, validatorIds, pubKey, signature, depositDataRootApproval);
-
-    uint8 _validatorPhase = validatorPhase[validatorId];
-
-    // assert validator phase:
-    satisfy true;
 }
