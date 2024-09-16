@@ -15,7 +15,7 @@ methods {
 
     // BNFT:
     function _.burnFromWithdrawal(uint256) external => DISPATCHER(true);
-    function _.initialize() external => DISPATCHER(true);
+    // function _.initialize() external => DISPATCHER(true);
     function _.initializeOnUpgrade(address) external => DISPATCHER(true);
     function _.mint(address, uint256) external => DISPATCHER(true);
     function _.burnFromCancelBNftFlow(uint256) external => DISPATCHER(true);
