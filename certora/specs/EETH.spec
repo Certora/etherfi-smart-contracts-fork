@@ -39,18 +39,6 @@ invariant totalSharesIsSumOfShares()
             f -> f.selector != sig:upgradeToAndCall(address,bytes).selector
     }
 
-/// @title The sum of shares of two users is not greater than total shares
-invariant sumOfTwo(address user1, address user2)
-    shares(user1) + shares(user2) <= sumOfShares
-    filtered {
-            f -> f.selector != sig:upgradeToAndCall(address,bytes).selector
-        }
-    {
-        preserved {
-            requireInvariant totalSharesIsSumOfShares();
-        }
-    }
-
 /**
 Verify that there is no fee on transfer.
 **/
@@ -151,10 +139,8 @@ rule TransferFromDoesntChangeOtherBalance(address from, address to, uint256 amou
     assert balanceBefore == shares(other);
 }
 
+// More ideas for rules for EtherFi to implement:
 // rule mintMonotonicity() {}
-
 // rule mintAccumulativity() {}
-
 // rule burnMonotonicity() {}
-
 // rule burnAccumulativity() {}
