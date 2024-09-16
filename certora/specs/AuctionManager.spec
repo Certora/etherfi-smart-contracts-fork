@@ -50,12 +50,6 @@ invariant activeBidsSolvency()
         }
     }
 
-// the sum of all used keys equals num of bids.
-// invariant numOfAllUsedKeysEqNumOfBids() {}
-
-// chack for all bids to see if the key index is unique per user. / not same user with same keyIndex on different bids:
-// rule bidderPubKeyIndexIsUniqePerUser() {}
-
 rule bidImmutability(method f, uint256 bid_id) filtered {f -> !isFilteredFunc(f)} {
     env e;
     calldataarg args;
@@ -85,6 +79,7 @@ invariant alwaysInitialized()
     currentContract._initialized == max_uint8
     filtered {f -> !isFilteredFunc(f)}
 
+/// @title createBid works as intended.
 rule integrityOfCreateBid(uint256 _bidSize, uint256 _bidAmountPerBid) {
     env e;
     uint256 newBidId;
@@ -115,8 +110,8 @@ rule integrityOfCreateBid(uint256 _bidSize, uint256 _bidAmountPerBid) {
     // trivial due to requires:
     assert msgValue == _bidSize * _bidAmountPerBid, "function should have reverted";
     // number of bids update correctly
-    assert numberOfBidsAfter == numberOfBidsBefore + _bidSize, "ammount of bids updated incorrectly";
-    assert numberOfActiveBidsAfter == numberOfActiveBidsBefore + _bidSize, "ammount of  active bids updated incorrectly";
+    assert numberOfBidsAfter == numberOfBidsBefore + _bidSize, "amount of bids updated incorrectly";
+    assert numberOfActiveBidsAfter == numberOfActiveBidsBefore + _bidSize, "amount of  active bids updated incorrectly";
     assert senderLastKeyIndex == senderFirstKeyIndex + _bidSize, "amount of used keys updated incorrectly";
     // the right bids were added:
     assert amount == _bidAmountPerBid;
@@ -125,6 +120,3 @@ rule integrityOfCreateBid(uint256 _bidSize, uint256 _bidAmountPerBid) {
     assert isActive;
 }
 
-// rule integrityOfCancelBid(uint256 bidId) {
-//     env e;
-// }
