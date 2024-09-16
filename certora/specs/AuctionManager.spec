@@ -26,17 +26,17 @@ definition isFilteredFunc(method f) returns bool = (
     f.selector == sig:upgradeToAndCall(address, bytes).selector
 );
 
-// numberOfActiveBids equals the sum of active bids.
+/// @title numberOfActiveBids equals the sum of active bids.
 invariant numberOfActiveBidsCorrect() 
     sum_of_active_bids == to_mathint(numberOfActiveBids())
     filtered {f -> !isFilteredFunc(f)}
 
-// numberOfBids equals the sum of all bids.
+/// @title numberOfBids equals the sum of all bids.
 invariant numberOfBidsEqTheSumOfAllBids() 
     sum_of_bids == to_mathint(numberOfBids())
     filtered {f -> !isFilteredFunc(f) && f.selector != sig:initialize(address).selector}
 
-// solvency invariant - contract should hold atleast sumOfAllActiveBidAmounts amount of eth.
+/// @title solvency invariant - contract should hold atleast sumOfAllActiveBidAmounts amount of eth.
 invariant activeBidsSolvency()
     to_mathint(nativeBalances[currentContract]) >= sum_of_all_active_bids_amounts
     filtered {f -> !isFilteredFunc(f)}
@@ -50,6 +50,7 @@ invariant activeBidsSolvency()
         }
     }
 
+/// @title once a bid is set, the only field that can be changed is isActive field.
 rule bidImmutability(method f, uint256 bid_id) filtered {f -> !isFilteredFunc(f)} {
     env e;
     calldataarg args;
@@ -74,7 +75,7 @@ rule bidImmutability(method f, uint256 bid_id) filtered {f -> !isFilteredFunc(f)
     assert bidderAddressBefore == bidderAddressAfter, "bidder address was changed";
 }
 
-/// @title The contact is set as initialized in the constructor -- seems a bug?
+/// @title The contact is set as initialized in the constructor.
 invariant alwaysInitialized()
     currentContract._initialized == max_uint8
     filtered {f -> !isFilteredFunc(f)}
