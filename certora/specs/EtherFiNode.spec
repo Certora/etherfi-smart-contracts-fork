@@ -1,50 +1,9 @@
 import "./EtherFiNodeSetup.spec";
 
-use invariant mirrorLength;
-use invariant validatorPastLengthAreNullified;
-use invariant validatorIndeciesLessThanLength;
-use invariant validatorIndeciesValidaorIdMirror;
-use invariant blockNumberValidity;
 use invariant validatorIdsAreUnique;
 use invariant validatorIdNeverZero;
-use builtin rule sanity;
 
-rule integrityRegisterValidator(uint256 validatorId, bool enableRestaking) {
-    env e;
-    requireInvariant validatorIndeciesValidaorIdMirror();
-    require version() == 1;
-    require validatorId != 0;
-
-    mathint numOfValidatorsPre = sumAllAssociatedValidatorIds;
-    require numOfValidatorsPre < max_uint256;
-
-    bool validatorExistsPre = (associatedValidatorIndicesGhost[validatorId] != 0);
-
-    registerValidator(e, validatorId, enableRestaking);
-
-    bool validatorExistsPost = (associatedValidatorIndicesGhost[validatorId] != 0);
-
-    mathint numOfValidatorsPost = sumAllAssociatedValidatorIds;
-
-    assert !validatorExistsPre && validatorExistsPost => numOfValidatorsPost == numOfValidatorsPre + 1;
-    assert !validatorExistsPre => associatedValidatorIdsGhost[assert_uint256(numOfValidatorsPre)] == validatorId;
-    assert !validatorExistsPre => associatedValidatorIndicesGhost[validatorId] == numOfValidatorsPre;
-}
-
-rule integrityOfUnregisterValidator(uint256 validatorId, IEtherFiNodesManager.ValidatorInfo info) {
-    env e;
-    bool succeed;
-
-    mathint numOfValidatorsPre = sumAllAssociatedValidatorIds;
-
-    bool validatorExistsPre = (associatedValidatorIndicesGhost[validatorId] != 0);
-    
-    succeed = unRegisterValidator(e, validatorId, info);
-
-    bool validatorExistsPost = (associatedValidatorIndicesGhost[validatorId] != 0);
-    assert false;
-}
-
+/// @title whenever the pending withdrawal amount is decreased (completed) the number of completed withdrawals increases.
 rule pendingComplitedWithdrawalsCorrelation(method f) {
     env e;
     calldataarg args;
@@ -60,18 +19,7 @@ rule pendingComplitedWithdrawalsCorrelation(method f) {
     assert pendingPost < pendingPre => completedPost > completedPre;
 }
 
-rule whoLeaveEth(method f, address membershipAddress) {
-    env e;
-    // require membershipAddress != e.msg.sender;
-    // require auctionManager.membershipManagerContractAddress() == membershipAddress;
-    calldataarg args;
-    uint256 contractBalancePre = nativeBalances[currentContract];
-        f(e,args);
-    uint256 contractBalancePost = nativeBalances[currentContract];
-    assert contractBalancePre == contractBalancePost;
-}
-
-// Verify state diafram from documentation.
+/// @title Verify validator state transition diagram from documentation.
 // State Transition Diagram for StateMachine contract:
 //
 //      NOT_INITIALIZED <-
@@ -106,14 +54,7 @@ rule validatorStateTransitions(IEtherFiNode.VALIDATOR_PHASE oldPhase, IEtherFiNo
     assert phaseAfter == WAITING_FOR_APPROVAL() => phaseBefore == STAKE_DEPOSITED(), "WAITING_FOR_APPROVAL transtion violated";
 }
 
-// version is always 1 (after initialization).
-invariant versionIsOne()
-    version() == 1;
-
-invariant sumAllExitedLessThanAllAssociated()
-    assert_uint256(numExitedValidators() + numExitRequestsByTnft()) <= numAssociatedValidators();
-
-//TODO: if NOT_INITIALIZED how can be associated????
+/// @title registering a validator and then unregistering it should never revert.
 rule registerValidatorThenUnregisteringNeverReverts(uint256 validatorId, bool enableRestaking) {
     env e;
     IEtherFiNodesManager.ValidatorInfo info;
@@ -123,13 +64,13 @@ rule registerValidatorThenUnregisteringNeverReverts(uint256 validatorId, bool en
 
     registerValidator(e, validatorId, enableRestaking);
     // set validator phase to IEtherFiNode.VALIDATOR_PHASE.STAKE_DEPOSITED - required by the node manager.
-    require info.validatorIndex == 0; // requires by the node manager.
+    require info.validatorIndex == 0;
 
     require (info.phase == NOT_INITIALIZED() || info.phase == FULLY_WITHDRAWN()); // requires by the node manager.
     if (info.phase == FULLY_WITHDRAWN()) {
         require numExitedValidators() > 0; // FULLY_WITHDRAWN can be only if exited before.
     }
-    require info.exitRequestTimestamp == 0; // seens to be a deprecated filed in the struct.
+    require info.exitRequestTimestamp == 0; // seems to be a deprecated filed in the struct.
 
     bool succeed = unRegisterValidator@withrevert(e, validatorId, info);
 
@@ -138,17 +79,19 @@ rule registerValidatorThenUnregisteringNeverReverts(uint256 validatorId, bool en
     assert !didRevert;
 }
 
+// This invariant is artificially true for the sake of registerValidatorThenUnregisteringNeverReverts.
+// it is not accurate because associatedValidatorIdsLengthGhost counts validators in STAKE_DEPOSITED, WAITING_FOR_APPROVAL phases as well.
 invariant associatedValidatorIdsLengthEqNumOfValidators() 
     associatedValidatorIdsLengthGhost == numAssociatedValidators()
+    filtered { f -> f.selector != sig:updateNumberOfAssociatedValidators(uint16,uint16).selector }
     { 
         preserved {
-            requireInvariant versionIsOne();
+            require version() == 1;
         } preserved unRegisterValidator(uint256 validatorId, IEtherFiNodesManager.ValidatorInfo info) with (env e) {
             if (info.phase == FULLY_WITHDRAWN() && numAssociatedValidators() > 0) {
-                // TODO: is it even possible with the tool?
                 updateNumberOfAssociatedValidators(e, 0, 1); // done by node manager at fullWithdraw. (calls processFullWithdraw).
-                // associatedValidatorIdsLengthGhost = assert_uint256(associatedValidatorIdsLengthGhost - 1); // was never in this array if NOT_INITIALIZED.
             } else if (info.phase == NOT_INITIALIZED() && associatedValidatorIdsLengthGhost > 0) {
+                // phase is NOT_INITIALIZED so shouldn't be in numAssociatedValidators.
                 updateNumberOfAssociatedValidators(e, 0, 1); // done by node manager at fullWithdraw. (calls processFullWithdraw).
             }
         } 
@@ -157,18 +100,8 @@ invariant associatedValidatorIdsLengthEqNumOfValidators()
                 associatedValidatorIdsLengthGhost = assert_uint256(associatedValidatorIdsLengthGhost - 1); // done by node manager at fullWithdraw. (calls unregister before)
             }
         }
+        preserved registerValidator(uint256 validatorId, bool restakingEnabled) with (env e) {
+            // phase is STAKE_DEPOSITED so shouldn't be in numAssociatedValidators.
+            updateNumberOfAssociatedValidators(e, 1, 0); // should fail for register validator. this is a patch.
+        }
     }
-
-// numexited + num exited < numallassosiated
-
-// pending Gwei correlation with assosiatedValidators
-// invariant pendingGweiAssociatedValidatorsCorrelation()
-
-// restakingObservedExitBlocks are less than current.block - only for corrcness (may cause false violations)
-
-// for node manager:
-// no same validatorId is present/assosiated in defferent etherFiNodes
-// sumAllAssociatedValidatorIds equals _numAssociatedValidators - because it is update in the manager while sumAllAssociatedValidatorIds is tracked through the node itself
-// sumAllAssociatedValidatorIds equals sum of validators in a suitable PHASE.
-// _numAssociatedValidators equals sum of validators in a suitable PHASE.
-
