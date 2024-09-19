@@ -143,7 +143,6 @@ function noValidatorForUnusedNodesRequirements(uint256 validatorId) {
     requireInvariant ArrayMirrorIntegrity();
     // push node to unused safes only if it is the last associated validator:
     requireInvariant amountOfValidatorPerEtherFiNodeEqualsNumAssociatedValidators();
-    // require etherFiNode.version() == 1;
     requireInvariant versionIsOneOnlyIfAssociated();
     requireInvariant validatorIdNeverZero();
     requireInvariant noValidatorForUnusedNodes(validatorId);
