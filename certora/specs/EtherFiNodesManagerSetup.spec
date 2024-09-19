@@ -63,7 +63,7 @@ function createNewNodeAddress() returns address {
 
 /******         Ghost declaration       *****/ 
 
-/**  @title Ghost etherfiNodeAddressMirror is:
+/**  Ghost etherfiNodeAddressMirror is:
     mirrors the etherfiNodeAddress map for further use with quantifiers.
 **/ 
 ghost mapping(uint256 => address) etherfiNodeAddressMirror {
