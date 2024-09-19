@@ -61,21 +61,38 @@ function createNewNodeAddress() returns address {
     return newAddress;
 }
 
+/******         Ghost declaration       *****/ 
+
+/**  @title Ghost etherfiNodeAddressMirror is:
+    mirrors the etherfiNodeAddress map for further use with quantifiers.
+**/ 
 ghost mapping(uint256 => address) etherfiNodeAddressMirror {
+    // assuming value zero at the initial state before constructor 
     init_state axiom forall uint256 validatorId . etherfiNodeAddressMirror[validatorId] == 0;
 }
 
+/**  Ghost unusedWithdrawalSafesLengthGhost is:
+    mirrors the unusedWithdrawalSafes length.
+**/ 
 ghost uint256 unusedWithdrawalSafesLengthGhost {
     init_state axiom unusedWithdrawalSafesLengthGhost == 0;
 }
 
+/**  Ghost unusedWithdrawalSafesMirror is:
+    mirrors the unusedWithdrawalSafes arrray for further use with quantifiers.
+**/ 
 ghost mapping(uint256 => address) unusedWithdrawalSafesMirror {
     init_state axiom forall uint256 index . unusedWithdrawalSafesMirror[index] == 0;
 }
 
+/**  Ghost associatedValidatorsPerNode is:
+    count the number of validator pointing to the same etherFi node at etherfiNodeAddress.
+**/ 
 ghost mapping(address => mathint) associatedValidatorsPerNode {
     init_state axiom forall address node . associatedValidatorsPerNode[node] == 0;
 }
+
+/******         Hooks for ghost updates       *****/ 
 
 hook Sstore etherFiNodesManager.unusedWithdrawalSafes[INDEX uint256 indx] address newSafe (address oldSafe) {
     require oldSafe == unusedWithdrawalSafesMirror[indx];
@@ -100,7 +117,7 @@ hook Sload address node etherFiNodesManager.etherfiNodeAddress[KEY uint256 valid
     require node == etherfiNodeAddressMirror[validatorId];
 }
 
-// hook unusedWithdrawalSafes length
+// updates unusedWithdrawalSafes length
 hook Sstore etherFiNodesManager.unusedWithdrawalSafes.(offset 0) uint256 newlength (uint256 oldlength) {
     require oldlength == unusedWithdrawalSafesLengthGhost;
     unusedWithdrawalSafesLengthGhost = newlength;
@@ -114,7 +131,7 @@ hook Sload uint256 length etherFiNodesManager.unusedWithdrawalSafes.(offset 0) {
     require length == unusedWithdrawalSafesLengthGhost;
 }
 
-/// @title Verifies that mirroring unusedWithdrawalSafesMirror is done correctly.
+/** @title Verifies that mirroring unusedWithdrawalSafesMirror is done correctly. **/
 invariant ArrayMirrorIntegrity()
     forall uint256 indx.
         (indx < unusedWithdrawalSafesLengthGhost => unusedWithdrawalSafesMirror[indx] != 0) &&
@@ -126,7 +143,8 @@ invariant ArrayMirrorIntegrity()
             }
         }
 
-/// @title Verifies that the amout of linked validators to a node by the manager equals the actual amount of associated validators by the node itseld.
+/** @title Verifies that the amout of linked validators to a node by the manager 
+equals the actual amount of associated validators by the node itself. **/
 invariant amountOfValidatorPerEtherFiNodeEqualsNumAssociatedValidators()
     associatedValidatorIdsLengthGhost == associatedValidatorsPerNode[etherFiNode]
     filtered {f -> !isFilteredFunc(f)}
@@ -136,17 +154,26 @@ invariant amountOfValidatorPerEtherFiNodeEqualsNumAssociatedValidators()
         }
     }
 
+// helper ghosts to count the amount of validatorIds associated with the etherFi node.
 ghost mathint minimalLength;
 ghost bool atLeastOnAssociated;
 
-function noValidatorForUnusedNodesRequirements(uint256 validatorId) {
-    requireInvariant ArrayMirrorIntegrity();
+/**
+    CVL function to gather all valid state needed for noValidatorForUnusedNodes invariant and one other assumption:
+    1. the size of the unusedWithdrawalSafes array is not close to max_uint.
+**/
+function validStateForNoValidatorForUnusedNodes(uint256 validatorId) {
+    requireInvariant ArrayMirrorIntegrity(); // require that the ghost mirroring is correct.
     // push node to unused safes only if it is the last associated validator:
     requireInvariant amountOfValidatorPerEtherFiNodeEqualsNumAssociatedValidators();
+    /* required to avoid invalid state where node version is zero 
+    and there are validators associated with the node. */
     requireInvariant versionIsOneOnlyIfAssociated();
     requireInvariant validatorIdNeverZero();
+    // require the invariant is correct for the new validatorId as well for the prestate.
     requireInvariant noValidatorForUnusedNodes(validatorId);
-    require unusedWithdrawalSafesLengthGhost < max_uint256 - 3; // -3 for every possible loop iteration.
+    // -1 for every possible loop iteration (loop_iter = 3) to avoid overflows.
+    require unusedWithdrawalSafesLengthGhost < max_uint256 - 3; 
 }
 
 /// @title Verifies that if there is a node in unused nodes array than there is no validator that is linked to it.
@@ -164,17 +191,20 @@ invariant noValidatorForUnusedNodes(uint256 validatorId)
             requireInvariant ArrayMirrorIntegrity();
         }
         preserved unregisterValidator(uint256 _validatorId) with (env e) {
-            noValidatorForUnusedNodesRequirements(_validatorId);
+            validStateForNoValidatorForUnusedNodes(_validatorId);
+            // If there are two validator pointing to the same etherFi node then its associated validatorIds length must be at least 2.
             require (etherfiNodeAddress(_validatorId) == etherfiNodeAddress(validatorId)) => associatedValidatorIdsLengthGhost >= 2;
         }
         preserved fullWithdraw(uint256 _validatorId) with (env e) {
-            noValidatorForUnusedNodesRequirements(_validatorId);
+            validStateForNoValidatorForUnusedNodes(_validatorId);
+            // If there are two validator pointing to the same etherFi node then its associated validatorIds length must be at least 2.
             require (etherfiNodeAddress(_validatorId) == etherfiNodeAddress(validatorId)) => associatedValidatorIdsLengthGhost >= 2;
         } 
         preserved batchFullWithdraw(uint256[] _validatorIds) with (env e) {
-            noValidatorForUnusedNodesRequirements(_validatorIds[0]);
+            validStateForNoValidatorForUnusedNodes(_validatorIds[0]);
             requireInvariant noValidatorForUnusedNodes(_validatorIds[1]);
             requireInvariant noValidatorForUnusedNodes(_validatorIds[2]);
+            // If there are X amount validator pointing to the same etherFi node then its associated validatorIds length must be at least X.
             minimalLength = 0;
             atLeastOnAssociated = false; // Using this for not excluding zero length case.
             if (etherfiNodeAddress(_validatorIds[0]) == etherfiNodeAddress(validatorId)) { minimalLength = minimalLength + 1; atLeastOnAssociated = true;}
@@ -188,6 +218,7 @@ invariant noValidatorForUnusedNodes(uint256 validatorId)
         }
     }
 
+/// @title Verifies that there are no duplicated etherFi nodes in the unusedWithdrawalSafes array.
 invariant unusedWithdrawalSafesUniqueness(uint256 indx1, uint256 indx2)
     indx1 != indx2 && indx1 < unusedWithdrawalSafesLengthGhost && indx2 < unusedWithdrawalSafesLengthGhost =>
         unusedWithdrawalSafesMirror[indx1] != unusedWithdrawalSafesMirror[indx2]
@@ -197,17 +228,23 @@ invariant unusedWithdrawalSafesUniqueness(uint256 indx1, uint256 indx2)
             require unusedWithdrawalSafesLengthGhost < max_uint256 - 3; // -3 for every possible loop iteration.
         }
         preserved unregisterValidator(uint256 _validatorId) with (env e) {
+            // validatorIds starts from 1.
             require _validatorId != 0;
+            // requires that if there is a node in unused nodes array than the following validatorid is not linked to it.
             requireInvariant noValidatorForUnusedNodes(_validatorId);
         }
         preserved fullWithdraw(uint256 _validatorId) with (env e) {
+            // validatorIds starts from 1.
             require _validatorId != 0;
+            // requires that if there is a node in unused nodes array than the following validatorid is not linked to it.
             requireInvariant noValidatorForUnusedNodes(_validatorId);
         } 
         preserved batchFullWithdraw(uint256[] _validatorIds) with (env e) {
+            // validatorIds starts from 1.
             require _validatorIds[0] != 0;
             require _validatorIds[1] != 0;
             require _validatorIds[2] != 0;
+            // requires that if there is a node in unused nodes array than the following validatorIds are not linked to it.
             requireInvariant noValidatorForUnusedNodes(_validatorIds[0]);
             requireInvariant noValidatorForUnusedNodes(_validatorIds[1]);
             requireInvariant noValidatorForUnusedNodes(_validatorIds[2]);

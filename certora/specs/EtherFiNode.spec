@@ -42,7 +42,7 @@ rule validatorStateTransitions(IEtherFiNode.VALIDATOR_PHASE oldPhase, IEtherFiNo
     bool res;
 
     IEtherFiNode.VALIDATOR_PHASE phaseBefore = oldPhase;
-        res = validatePhaseTransition(oldPhase, newPhase); // call phase instead.
+        res = validatePhaseTransition(oldPhase, newPhase);
     IEtherFiNode.VALIDATOR_PHASE phaseAfter = newPhase;
 
     assert phaseAfter == NOT_INITIALIZED() => phaseBefore == NOT_INITIALIZED() || phaseBefore == STAKE_DEPOSITED() || phaseBefore == WAITING_FOR_APPROVAL(), "NOT_INITIALIZED transtion violated";
