@@ -114,12 +114,13 @@ contract WithdrawRequestNFT is ERC721Upgradeable, UUPSUpgradeable, OwnableUpgrad
         _burn(tokenId);
         delete _requests[tokenId];
 
+        uint256 amountBurnedShare = 0;
         if (fee > 0) {
             // send fee to membership manager
-            liquidityPool.withdraw(address(membershipManager), fee);
+            amountBurnedShare += liquidityPool.withdraw(address(membershipManager), fee);
         }
+        amountBurnedShare += liquidityPool.withdraw(recipient, amountToWithdraw);
 
-        uint256 amountBurnedShare = liquidityPool.withdraw(recipient, amountToWithdraw);
         uint256 amountUnBurnedShare = request.shareOfEEth - amountBurnedShare;
         if (amountUnBurnedShare > 0) {
             accumulatedDustEEthShares += uint96(amountUnBurnedShare);
@@ -134,14 +135,20 @@ contract WithdrawRequestNFT is ERC721Upgradeable, UUPSUpgradeable, OwnableUpgrad
         }
     }
 
+    // Reduce the accumulated dust eEth shares by the given amount
+    // This is to fix the accounting error that was over-accumulating dust eEth shares due to the fee
+    function updateAccumulatedDustEEthShares(uint96 amount) external onlyOwner {
+        accumulatedDustEEthShares -= amount;
+    }
+
     // a function to transfer accumulated shares to admin
-    function burnAccumulatedDustEEthShares() external {
+    function withdrawAccumulatedDustEEthShares(address _recipient) external {
         if (!roleRegistry.hasRole(WITHDRAW_NFT_ADMIN_ROLE, msg.sender)) revert IncorrectRole();
-        require(eETH.totalShares() > accumulatedDustEEthShares, "Inappropriate burn");
-        uint256 amount = accumulatedDustEEthShares;
+        uint256 shares = accumulatedDustEEthShares;
         accumulatedDustEEthShares = 0;
 
-        eETH.burnShares(address(this), amount);
+        uint256 amountForShares = liquidityPool.amountForShare(shares);
+        eETH.transfer(_recipient, amountForShares);
     }
 
     // Given an invalidated withdrawal request NFT of ID `requestId`:,
@@ -182,10 +189,32 @@ contract WithdrawRequestNFT is ERC721Upgradeable, UUPSUpgradeable, OwnableUpgrad
         return _requests[requestId].isValid;
     }
 
-    function finalizeRequests(uint256 requestId) external {
+    function calculateTotalPendingAmount(uint256 lastRequestId) public view returns (uint256) {
+        uint256 totalAmount = 0;
+        for (uint256 i = lastFinalizedRequestId + 1; i <= lastRequestId; i++) {
+            if (!isValid(i)) continue;
+
+            IWithdrawRequestNFT.WithdrawRequest memory request = _requests[i];
+            uint256 amountForShares = liquidityPool.amountForShare(request.shareOfEEth);
+            uint256 amount = (request.amountOfEEth < amountForShares) ? request.amountOfEEth : amountForShares;
+
+            totalAmount += amount;
+        }
+        return totalAmount;
+    }
+
+    function finalizeRequests(uint256 lastRequestId) external {
         if (!roleRegistry.hasRole(WITHDRAW_NFT_ADMIN_ROLE, msg.sender)) revert IncorrectRole();
 
-        lastFinalizedRequestId = uint32(requestId);
+        uint128 totalAmount = uint128(calculateTotalPendingAmount(lastRequestId));
+        _finalizeRequests(lastRequestId, totalAmount);
+    }
+
+    // It can be used to correct the total amount of pending withdrawals. There are some accounting erros as of now
+    function finalizeRequests(uint256 lastRequestId, uint128 totalAmount) external {
+        if (!roleRegistry.hasRole(WITHDRAW_NFT_ADMIN_ROLE, msg.sender)) revert IncorrectRole();
+
+        _finalizeRequests(lastRequestId, totalAmount);
     }
 
     function invalidateRequest(uint256 requestId) external {
@@ -221,6 +250,11 @@ contract WithdrawRequestNFT is ERC721Upgradeable, UUPSUpgradeable, OwnableUpgrad
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    function _finalizeRequests(uint256 lastRequestId, uint128 totalAmount) internal {
+        lastFinalizedRequestId = uint32(lastRequestId);
+        liquidityPool.addEthAmountLockedForWithdrawal(totalAmount);
+    }
 
     function getImplementation() external view returns (address) {
         return _getImplementation();
