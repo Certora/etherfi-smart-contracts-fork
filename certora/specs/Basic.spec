@@ -82,3 +82,24 @@ filtered{f -> !f.isView && f.contract == Pool}
     assert balance_after < balance_before => methodsSendETH_Pool(f);
     satisfy methodsSendETH_Pool(f) => balance_after < balance_before;
 }
+
+rule whichMethodsAreAdminPriviliged_NodesManager(method f) 
+filtered{f -> !f.isView && ignoreMethods_NodesManager(f) && f.contract == NodesManager} 
+{
+    env e;
+    bool hasAdminRole = RR.hasRole(NodesManager.NODE_ADMIN_ROLE(), e.msg.sender);
+    calldataarg args;
+    f(e,args);
+    assert hasAdminRole;
+}
+
+/// FALSE!
+rule onlyAdminCanMoveETHFromNodes(method f) 
+filtered{f -> methodsCallEtherNode_NodesManager(f) && f.contract == NodesManager} 
+{
+    env e;
+    bool hasAdminRole = RR.hasRole(NodesManager.NODE_ADMIN_ROLE(), e.msg.sender);
+    calldataarg args;
+    f(e,args);
+    assert hasAdminRole;
+}

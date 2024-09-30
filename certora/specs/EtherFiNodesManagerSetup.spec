@@ -1,4 +1,5 @@
 using EtherFiNodesManager as NodesManager;
+using RoleRegistry as RR;
 
 methods {
     // Getters:
@@ -30,6 +31,10 @@ methods {
     function _.getClaimableUserDelayedWithdrawals(address) external => NONDET;
 
     function _.proxiableUUID() external => PER_CALLEE_CONSTANT;
+
+    /// Role Registry
+    function NodesManager.NODE_ADMIN_ROLE() external returns (bytes32) envfree;
+    function RR.hasRole(bytes32,address) external returns (bool) envfree;
 }
 
 // FILTERING-OUT THE FOLLOWING CALLS:
