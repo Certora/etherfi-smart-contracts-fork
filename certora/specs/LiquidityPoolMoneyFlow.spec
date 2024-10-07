@@ -7,6 +7,9 @@ import "./Basic.spec";
 // using LiquidityPool as Pool;
 using AuctionManager as auctionManager;
 
+// Status: All rules here pass
+// Run link: https://prover.certora.com/output/65266/e1ae0ebb78c346259a9bd46cf286b3bc/?anonymousKey=d2adcf131917ccf3f7512519f17a985f597b8ce3
+
 methods {
     // dispatcher list for unresolved calls in
     // EtherFiNode.withdrawFunds
@@ -139,4 +142,16 @@ rule money_flow_from_node_partial_withdraw {
     } else {
         satisfy money_recipient == tnftHolder;
     }
+}
+
+// Show that only EtherFiNodesManager can call the
+// funcitons of EtherFiNode that move money out
+rule only_nodes_manager (method f) filtered { f -> 
+    !f.isView && f.contract == NodeA &&
+    methodsSendETH_EtherFiNode(f)
+}{
+    calldataarg args;
+    env e;
+    f(e, args);
+    assert e.msg.sender == NodeA.etherFiNodesManager;
 }
