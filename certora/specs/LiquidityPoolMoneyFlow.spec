@@ -1,34 +1,44 @@
-// import "./ERC721Receiver.spec"; 
-// import "./EtherFiNodeInterface.spec"; 
-// import "./EtherFiNodesManagerSetup.spec"; 
-// import "./EigenLayerMethods.spec"; 
+// Status: All Rules PASSING: https://prover.certora.com/output/65266/ff3119ec04544fdbb502959ea809567e/?anonymousKey=36c40fc440497ae114c993ed9818d44ad0577708
 import "./Basic.spec";
 
-// using LiquidityPool as Pool;
 using AuctionManager as auctionManager;
 
-// Status: All rules here pass
-// Run link: https://prover.certora.com/output/65266/e1ae0ebb78c346259a9bd46cf286b3bc/?anonymousKey=d2adcf131917ccf3f7512519f17a985f597b8ce3
+// Tracks if there was ever a transfer to an address
+// other than the expected ones.
+persistent ghost bool illegal_transfer;
 
-methods {
-    // dispatcher list for unresolved calls in
-    // EtherFiNode.withdrawFunds
-    unresolved external in EtherFiNode._ => DISPATCH [
-        CallHookHelper.HarnessCallHook()
-    ] default NONDET;
+// These are used to pass the relevant addresses to the hook. Calling
+// methods on variables does not seem supported within hooks, so
+// using these ghosts and calling the relevant functions in the rule
+// is a workaround for that
+persistent ghost address treasury;
+persistent ghost address nodeOperator;
+persistent ghost address bnftHolder;
+persistent ghost address tnftHolder;
 
-    function CallHookHelper.HarnessCallHook() external with (env e) => CVLCallHook(e);
+// These are used to express the liveness condition
+// that each of these are sent value
+persistent ghost bool sent_treasury;
+persistent ghost bool sent_nodeOperator;
+persistent ghost bool sent_bnftHolder;
+persistent ghost bool sent_tnftHolder;
 
-}
-
-// This function is used to catch all cases where there is
-// a call outside the contract under verification and save
-// the target address whenever the value transferred is nonzero
-persistent ghost address money_recipient;
-function CVLCallHook(env e)  {
-    if (e.msg.value > 0) {
-        money_recipient = e.msg.sender;
+hook CALL(uint g, address addr, uint value, uint argsOffs, uint argLength, uint retOffset, uint retLength) uint rc {
+    if (value > 0)  {
+        if (!(addr == treasury ||
+            addr == nodeOperator ||
+            addr == bnftHolder ||
+            addr == tnftHolder)) {
+            illegal_transfer = true;
+        }
+        // The OR is used so that we don't unset this.
+        // These are true if they are ever sent to
+        sent_treasury = sent_treasury || addr == treasury;
+        sent_nodeOperator = sent_nodeOperator || addr == nodeOperator;
+        sent_bnftHolder = sent_bnftHolder || addr == bnftHolder;
+        sent_tnftHolder = sent_tnftHolder || addr == tnftHolder;
     }
+
 }
 
 // the only possible flow of validator funds is eigenpod -> etherfiNode ->
@@ -41,45 +51,63 @@ function CVLCallHook(env e)  {
 // some validator funds could be temporarily stuck until we upgrade with a fix,
 // but user funds would never be lost.
 
+// We rely on other rules to complete this proof.
 // * whichFunctionSendsETH_EtherFiNode in Basic.spec proves
 // that the only functions that move money out of EtherFiNode
 // are withdrawFunds and moveFundsToManager.
+use rule whichFunctionSendsETH_EtherFiNode;
+
 // * withdrawFunds can only be called by EtherFiNodeManager
 // (because of a modifier) and it transfers money to addresses
 // passed by parameter
+// see rule only_nodes_manager below
+
 // * EtherFiNodesManager calls EtherFiNode.withdraw in
 // distributePayouts which is internal and called by: fullWithdraw,
 // partialWithdraw
 // * whichFunctionSendsETHFromNode_NodesManager also
 // proves that fullWithdraw / partialWithdraw
-// are the only functions which cause 
+// are the only functions which cause money to move out of etherfiNode
+use rule whichFunctionSendsETHFromNode_NodesManager;
 
-rule money_flow_from_node_full_withdraw {
+// We then prove that for full/partial withdraw, money only
+// flows to the expected recipients
+
+function callMoneyMovementFunction(env e, method f, uint256 validator) {
+    if(f.selector == sig:EtherFiNodesManager.partialWithdraw(uint256).selector){
+        partialWithdraw(e, validator);
+    }
+    if(f.selector == sig:EtherFiNodesManager.fullWithdraw(uint256).selector){
+        fullWithdraw(e, validator);
+    }
+    if(f.selector == sig:EtherFiNodesManager.batchPartialWithdraw(uint256[]).selector){
+        uint256[] validators;
+        require validators.length == 1;
+        require validators[0] == validator;
+        batchPartialWithdraw(e, validators);
+    }
+}
+
+// Money only flows to the expected recipients for full withdraw
+rule money_flow_from_node (method f) filtered { f->
+    methodsCallEtherNode_NodesManager(f)
+}{
     uint256 validatorId;
     env e;
 
-    // initialize ghost to currentContract
-    require money_recipient == currentContract; 
+    require treasury == currentContract.treasuryContract;
+    require nodeOperator == auctionManager.getBidOwner(e, validatorId);
+    require bnftHolder == currentContract.bnft.ownerOf(e, validatorId);
+    require tnftHolder == currentContract.tnft.ownerOf(e, validatorId);
 
-    // expected party addresses
-    address treasury = currentContract.treasuryContract;
-    address nodeOperator = auctionManager.getBidOwner(e, validatorId);
-    address bnftHolder = currentContract.bnft.ownerOf(e, validatorId);
-    address tnftHolder = currentContract.tnft.ownerOf(e, validatorId);
+    require !sent_treasury;
+    require !sent_nodeOperator;
+    require !sent_bnftHolder;
+    require !sent_tnftHolder;
 
-    fullWithdraw(e, validatorId);
+    require !illegal_transfer;
 
-    // If money was moved during this call it goes
-    // to one of the expected recipients. The
-    // case where money_recipient is currentContract
-    // models the case where nonzero money is not moved.
-    // temporarily made satisfy to check that this is a real result
-    // with the routing that I expect
-    assert money_recipient == currentContract ||
-        money_recipient == treasury ||
-        money_recipient == nodeOperator ||
-        money_recipient == bnftHolder ||
-        money_recipient == tnftHolder; 
+    callMoneyMovementFunction(e, f, validatorId);
 
     // The following encodes that all of these recipient
     // cases are reachable (and ensures that the above
@@ -87,65 +115,122 @@ rule money_flow_from_node_full_withdraw {
 
     // This unconstrained ghost on which we branch is
     // just here to encode nondeterminstic choice
+
+    assert !illegal_transfer;
+
+
+    satisfy treasury != nodeOperator &&
+        treasury != bnftHolder &&
+        treasury != tnftHolder &&
+        nodeOperator != bnftHolder &&
+        nodeOperator != tnftHolder &&
+        bnftHolder != tnftHolder;
+
     mathint nondeterministic_choice;
+
     if (nondeterministic_choice == 0) {
-        satisfy money_recipient == treasury;
+        // to generate call trace
+        satisfy sent_treasury;
     } else if (nondeterministic_choice == 1) {
-        satisfy money_recipient == nodeOperator;
+        satisfy sent_nodeOperator;
     } else if (nondeterministic_choice == 2) {
-        satisfy money_recipient == bnftHolder;
+        satisfy sent_bnftHolder;
     } else {
-        satisfy money_recipient == tnftHolder;
+        satisfy sent_tnftHolder;
     }
 
 }
 
+// Money only flows to the expected recipients for partial withdraw
+/*
 rule money_flow_from_node_partial_withdraw {
     uint256 validatorId;
     env e;
 
-    // initialize ghost to currentContract
-    require money_recipient == currentContract; 
+    // // expected party addresses
+    require treasury == currentContract.treasuryContract;
+    require nodeOperator == auctionManager.getBidOwner(e, validatorId);
+    require bnftHolder == currentContract.bnft.ownerOf(e, validatorId);
+    require tnftHolder == currentContract.tnft.ownerOf(e, validatorId);
 
-    // expected party addresses
-    address treasury = currentContract.treasuryContract;
-    address nodeOperator = auctionManager.getBidOwner(e, validatorId);
-    address bnftHolder = currentContract.bnft.ownerOf(e, validatorId);
-    address tnftHolder = currentContract.tnft.ownerOf(e, validatorId);
+    require !illegal_transfer;
+
+    require !sent_treasury;
+    require !sent_nodeOperator;
+    require !sent_bnftHolder;
+    require !sent_tnftHolder;
 
     partialWithdraw(e, validatorId);
 
-    // If money was moved during this call it goes
-    // to one of the expected recipients. The
-    // case where money_recipient is currentContract
-    // models the case where nonzero money is not moved.
-    assert money_recipient == currentContract ||
-        money_recipient == treasury ||
-        money_recipient == nodeOperator ||
-        money_recipient == bnftHolder ||
-        money_recipient == tnftHolder; 
+    assert !illegal_transfer;
 
     // The following encodes that all of these recipient
     // cases are reachable (and ensures that the above
     // assertion isn't just trivially stuck in the initial state)
 
+    satisfy treasury != nodeOperator &&
+        treasury != bnftHolder &&
+        treasury != tnftHolder &&
+        nodeOperator != bnftHolder &&
+        nodeOperator != tnftHolder &&
+        bnftHolder != tnftHolder;
+
 
     // This unconstrained ghost on which we branch is
     // just here to encode nondeterminstic choice
     mathint nondeterministic_choice;
+
     if (nondeterministic_choice == 0) {
-        satisfy money_recipient == treasury;
+        satisfy sent_treasury;
     } else if (nondeterministic_choice == 1) {
-        satisfy money_recipient == nodeOperator;
+        satisfy sent_nodeOperator;
     } else if (nondeterministic_choice == 2) {
-        satisfy money_recipient == bnftHolder;
+        satisfy sent_bnftHolder;
     } else {
-        satisfy money_recipient == tnftHolder;
+        satisfy sent_tnftHolder;
     }
 }
+*/
 
+// These cause hardstops
+// // frontrunning cannot cause withdraw to be blocked
+// rule money_flow_from_node_full_withdraw_frontrunning (method f) {
+//     uint256 validatorId;
+//     env e;
+// 
+//     storage init = lastStorage;
+//     
+//     fullWithdraw(e, validatorId);
+// 
+//     env e2;
+//     calldataarg args;
+//     f(e2, args);
+// 
+//     fullWithdraw@withrevert(e, validatorId) at init;
+//     assert !lastReverted;
+// }
+
+// // frontrunning cannot cause partial withdraw to be blocked
+// rule money_flow_from_node_partial_withdraw_frontrunning (method f) {
+//     uint256 validatorId;
+//     env e;
+// 
+//     storage init = lastStorage;
+//     
+//     partialWithdraw(e, validatorId);
+// 
+//     env e2;
+//     calldataarg args;
+//     f(e2, args);
+// 
+//     partialWithdraw@withrevert(e, validatorId) at init;
+//     assert !lastReverted;
+// }
+// 
+// 
 // Show that only EtherFiNodesManager can call the
-// funcitons of EtherFiNode that move money out
+// functions of EtherFiNode that move money out
+
 rule only_nodes_manager (method f) filtered { f -> 
     !f.isView && f.contract == NodeA &&
     methodsSendETH_EtherFiNode(f)
