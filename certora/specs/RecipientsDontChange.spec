@@ -6,14 +6,10 @@ methods {
     // These have low-level calls that otherwise havoc
     // the recipient addresses for the rule that these do not change
     function _.upgradeToAndCall(address newImplementation, bytes data) external => NONDET;
-    // cannot NONDET this
-    // function _.functionCall(address target, bytes memory data) internal => NONDET;
-    // function _.functionCallWithValue(
-    //     address target, bytes data,
-    //     uint256 value, string errorMessage) internal => NONDET;
 }
 
-
+// Status: PASSING
+// https://prover.certora.com/output/65266/2dae69e919fa47d49793f9e8ee5305fa/?anonymousKey=627629d4d1280738c5754f534121ef23afc42012
 rule recipientsDoNotChange (method f) filtered { f->
     // createBid does change the BidOwner and it is meant to
     f.selector != sig:AuctionManager.createBid(uint256,uint256).selector &&
