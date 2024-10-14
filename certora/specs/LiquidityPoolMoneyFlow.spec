@@ -141,60 +141,12 @@ rule money_flow_from_node (method f) filtered { f->
 
 }
 
-// Money only flows to the expected recipients for partial withdraw
-/*
-rule money_flow_from_node_partial_withdraw {
-    uint256 validatorId;
-    env e;
-
-    // // expected party addresses
-    require treasury == currentContract.treasuryContract;
-    require nodeOperator == auctionManager.getBidOwner(e, validatorId);
-    require bnftHolder == currentContract.bnft.ownerOf(e, validatorId);
-    require tnftHolder == currentContract.tnft.ownerOf(e, validatorId);
-
-    require !illegal_transfer;
-
-    require !sent_treasury;
-    require !sent_nodeOperator;
-    require !sent_bnftHolder;
-    require !sent_tnftHolder;
-
-    partialWithdraw(e, validatorId);
-
-    assert !illegal_transfer;
-
-    // The following encodes that all of these recipient
-    // cases are reachable (and ensures that the above
-    // assertion isn't just trivially stuck in the initial state)
-
-    satisfy treasury != nodeOperator &&
-        treasury != bnftHolder &&
-        treasury != tnftHolder &&
-        nodeOperator != bnftHolder &&
-        nodeOperator != tnftHolder &&
-        bnftHolder != tnftHolder;
-
-
-    // This unconstrained ghost on which we branch is
-    // just here to encode nondeterminstic choice
-    mathint nondeterministic_choice;
-
-    if (nondeterministic_choice == 0) {
-        satisfy sent_treasury;
-    } else if (nondeterministic_choice == 1) {
-        satisfy sent_nodeOperator;
-    } else if (nondeterministic_choice == 2) {
-        satisfy sent_bnftHolder;
-    } else {
-        satisfy sent_tnftHolder;
-    }
-}
-*/
-
-// These cause hardstops
-// // frontrunning cannot cause withdraw to be blocked
-// rule money_flow_from_node_full_withdraw_frontrunning (method f) {
+// // These cause hardstops
+// // // frontrunning cannot cause withdraw to be blocked
+// rule money_flow_from_node_full_withdraw_frontrunning (method f)
+// filtered { f->
+//     methodsCallEtherNode_NodesManager(f)
+// }{
 //     uint256 validatorId;
 //     env e;
 // 
@@ -209,9 +161,12 @@ rule money_flow_from_node_partial_withdraw {
 //     fullWithdraw@withrevert(e, validatorId) at init;
 //     assert !lastReverted;
 // }
-
+// 
 // // frontrunning cannot cause partial withdraw to be blocked
-// rule money_flow_from_node_partial_withdraw_frontrunning (method f) {
+// rule money_flow_from_node_partial_withdraw_frontrunning (method f) 
+// filtered { f->
+//     methodsCallEtherNode_NodesManager(f)
+// }{
 //     uint256 validatorId;
 //     env e;
 // 
@@ -226,11 +181,10 @@ rule money_flow_from_node_partial_withdraw {
 //     partialWithdraw@withrevert(e, validatorId) at init;
 //     assert !lastReverted;
 // }
-// 
-// 
+
+
 // Show that only EtherFiNodesManager can call the
 // functions of EtherFiNode that move money out
-
 rule only_nodes_manager (method f) filtered { f -> 
     !f.isView && f.contract == NodeA &&
     methodsSendETH_EtherFiNode(f)
