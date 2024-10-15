@@ -9,7 +9,7 @@ using LiquidityPool as liquidityPool;
 // by donating eETH"
 // STATUS (1/2): passes with the fix PR
 // commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
-// https://prover.certora.com/output/65266/22e44bbfc4304ecaa8a9d8e792c56b30/?anonymousKey=c6113a5a763bd8e4a5bd52fd55a7896e2146c0be
+// https://prover.certora.com/output/65266/81afa94e9f7b4c1b967d8308f427e1ba/?anonymousKey=4c6d2851cdf960fccc33a1bf8ce49f25434aea21
 // STATUS (2/2): fails without the fix PR (as expected):
 // https://prover.certora.com/output/65266/17bbb3dcd6c4478ab74ee7de3d1af1b6?anonymousKey=65c7d98202b96cbb848701546dbd98fdabe4a3a5
 rule eeth_donation_cant_affect_staking_rewards_M10 {
@@ -24,6 +24,10 @@ rule eeth_donation_cant_affect_staking_rewards_M10 {
     // Get rewardsIndex for tier 0 
     uint96 rewardsGlobalIndex0NoDonation =
         currentContract.tierData[0].rewardsGlobalIndex;
+    uint128 tier_shares_no_donation =
+        currentContract.tierDeposits[0].shares;
+    uint128 pool_shares_no_donation =
+        currentContract.tierVaults[0].totalPooledEEthShares;
 
     // Roll back to initial state and donate to EETH
     // Then call rebase with the same value again
@@ -37,6 +41,73 @@ rule eeth_donation_cant_affect_staking_rewards_M10 {
 
     assert rewardsGlobalIndex0NoDonation ==
         rewardsGlobalIndex0WithDonation;
+    assert currentContract.tierDeposits[0].shares ==
+        tier_shares_no_donation;
+    assert currentContract.tierVaults[0].totalPooledEEthShares ==
+        pool_shares_no_donation;
+
+}
+
+// Note: this is meant to catch the finding M10 from
+// the certora report.
+// This rule shows: "An attacker cannot influence the distributed rewards
+// by donating eETH"
+// STATUS (1/2) Passing with fix PR
+// commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
+// https://prover.certora.com/output/65266/65d66225cd394cffbd9b3a2e00e1484b/?anonymousKey=30d7b79109d9795d362e7c64537d9b1350acffe1
+rule M10_donation_does_not_affect_rewards {
+    env e;
+    int128 accruedRewards;
+    storage init = lastStorage;
+
+    // tierData leq loop bound
+    require currentContract.tierData.length < 3;
+
+    rebase(e, accruedRewards) at init;
+
+    // save the rewards data modified by distributeStaingRewardsV0/V1
+    uint96[] rewards_idx_before; // tierData[i].rewardsGlobalIndex
+    uint128[] tier_shares_before; //  tierDeposits[i].shares
+    uint128[] pooled_shares; // tierVaults[i].totalPooledEEthShares
+    uint256 td_length = currentContract.tierDeposits.length;
+    require rewards_idx_before.length == td_length;
+    require tier_shares_before.length == td_length;
+    require pooled_shares.length == td_length;
+    require forall uint256 i. i < td_length =>
+        rewards_idx_before[i] == 
+            currentContract.tierData[i].rewardsGlobalIndex &&
+        tier_shares_before[i] ==
+            currentContract.tierDeposits[i].shares &&
+        pooled_shares[i] ==
+            currentContract.tierVaults[i].totalPooledEEthShares;
+        
+    
+    // Get rewardsIndex for tier 0 
+    // uint96 rewardsGlobalIndex0NoDonation =
+    //     currentContract.tierData[0].rewardsGlobalIndex;
+
+    // Roll back to initial state and donate to EETH
+    // Then call rebase with the same value again
+    env e_donate;
+    uint256 amount;
+    eETH.transfer(e_donate, currentContract, amount) at init;
+    rebase(e, accruedRewards);
+    // Get rewardsIndex for tier 0 for execution with donation
+    // uint96 rewardsGlobalIndex0WithDonation =
+    //     currentContract.tierData[0].rewardsGlobalIndex;
+
+    // Assert the tier data is the same if donation happened before the rebase
+    assert forall uint256 i. i < td_length =>
+        rewards_idx_before[i] == 
+            currentContract.tierData[i].rewardsGlobalIndex &&
+        tier_shares_before[i] ==
+            currentContract.tierDeposits[i].shares &&
+        pooled_shares[i] ==
+            currentContract.tierVaults[i].totalPooledEEthShares;
+
+
+    // assert forall uint256 i. i < currentContract.tierData.length =>
+    //     rewards_idx_before[i] == currentContract.tierData[i].rewardsGlobalIndex;
 
 }
 
