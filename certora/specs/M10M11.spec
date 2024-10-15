@@ -55,6 +55,8 @@ rule eeth_donation_cant_affect_staking_rewards_M10 {
 // STATUS (1/2) Passing with fix PR
 // commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
 // https://prover.certora.com/output/65266/65d66225cd394cffbd9b3a2e00e1484b/?anonymousKey=30d7b79109d9795d362e7c64537d9b1350acffe1
+// STATUS (2/2) Failing without fix PR (as expected):
+// https://prover.certora.com/output/65266/4f0b272aae8f4d50b12ea67154f20da9/?anonymousKey=31f95550a4d6604f48a105b46af4cb924fdbf25f
 rule M10_donation_does_not_affect_rewards {
     env e;
     int128 accruedRewards;
