@@ -32,8 +32,8 @@ function CVLSharesForAmount(uint256 _amount) returns uint256 {
 // STATUS (1/2) Passing with fix PR
 // commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
 // https://prover.certora.com/output/65266/65d66225cd394cffbd9b3a2e00e1484b/?anonymousKey=30d7b79109d9795d362e7c64537d9b1350acffe1
-// STATUS (2/2) ____ without fix PR (as expected):
-// https://prover.certora.com/output/65266/4f0b272aae8f4d50b12ea67154f20da9/?anonymousKey=31f95550a4d6604f48a105b46af4cb924fdbf25f
+// STATUS (2/2) ____ without fix PR:
+// (TIMEOUT)
 rule M10_donation_does_not_affect_rewards {
     env e;
     int128 accruedRewards;
@@ -79,6 +79,15 @@ rule M10_donation_does_not_affect_rewards {
 
 }
 
+// Note: this is meant to catch the finding M10 from
+// the certora report.
+// This rule shows: "An attacker cannot influence the distributed rewards
+// by donating eETH"
+// STATUS (1/2) Passing with fix PR
+// https://prover.certora.com/output/65266/8a5abefff1674cce85c0cdcde5950c80/?anonymousKey=42a38819f042cf454cec0ff6110912fb9d23b3e9
+// commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
+// STATUS (2/2) Counterexample without fix PR (as expected):
+// https://prover.certora.com/output/65266/4ca76923dc434097b57bf93b2620ae41/?anonymousKey=3d781f6cb09f11c48206c441c77ad1e53099257e
 rule eeth_donation_cant_affect_staking_rewards_M10_singe_case {
     env e;
     int128 accruedRewards;
