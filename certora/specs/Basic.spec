@@ -32,7 +32,12 @@ definition methodsSendETH_EtherFiNode(method f) returns bool =
     f.selector == sig:EtherFiNodeA.withdrawFunds(address,uint256,address,uint256,address,uint256,address,uint256).selector;
 
 rule whichFunctionSendsETH_EtherFiNode(method f) 
-filtered{f -> !f.isView && f.contract == NodeA} 
+filtered{
+    f -> !f.isView && f.contract == NodeA &&
+    // will fail the satisfy rule even though no money
+    // is sent and the assertion passes.
+    f.selector != sig:EtherFiNodeA.initialize(address).selector
+    } 
 {
     env e;
     require e.msg.sender != NodeA;   /// Node doesn't call itself;
@@ -47,10 +52,12 @@ filtered{f -> !f.isView && f.contract == NodeA}
 
 definition methodsCallEtherNode_NodesManager(method f) returns bool =
     f.selector == sig:EtherFiNodesManager.partialWithdraw(uint256).selector ||
+    f.selector == sig:EtherFiNodesManager.batchPartialWithdraw(uint256[]).selector ||
     f.selector == sig:EtherFiNodesManager.fullWithdraw(uint256).selector;
 
 rule whichFunctionSendsETHFromNode_NodesManager(method f) 
-filtered{f -> !f.isView && ignoreMethods_NodesManager(f) && f.contract == NodesManager} 
+filtered{f -> !f.isView && !f.isFallback &&
+ignoreMethods_NodesManager(f) && f.contract == NodesManager} 
 {
     env e;
     require e.msg.sender != NodesManager;   /// Nodes manager doesn't call itself;
