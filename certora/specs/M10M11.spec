@@ -3,6 +3,28 @@ import "./Basic.spec";
 using EETH as eETH;
 using LiquidityPool as liquidityPool;
 
+methods {
+    // function globalIndexLibrary.calculateVaultEEthShares(
+    //     address _membershipManager, 
+    //     address _liquidityPool, 
+    //     uint256 _ethRewardsPerEEthShareBeforeRebase, 
+    //     uint256 _ethRewardsPerEEthShareAfterRebase) external returns (uint128[])=> NONDET;
+
+    // function LiquidityPool.sharesForAmount(uint256 _amount) external returns (uint256)  => CVLSharesForAmount(_amount);
+}
+
+
+// NOTE: may need to model effect of eETH.totalSahres
+ghost ghostShares(uint256) returns uint256 {
+    axiom forall uint256 x. forall uint256 y. 
+        x > y => ghostShares(x) > ghostShares(y);
+    axiom forall uint256 x. x == 0 <=> ghostShares(x) == 0;
+}
+function CVLSharesForAmount(uint256 _amount) returns uint256 {
+    return ghostShares(_amount);
+}
+
+
 // Note: this is meant to catch the finding M10 from
 // the certora report.
 // This rule shows: "An attacker cannot influence the distributed rewards
@@ -10,7 +32,7 @@ using LiquidityPool as liquidityPool;
 // STATUS (1/2) Passing with fix PR
 // commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
 // https://prover.certora.com/output/65266/65d66225cd394cffbd9b3a2e00e1484b/?anonymousKey=30d7b79109d9795d362e7c64537d9b1350acffe1
-// STATUS (2/2) Failing without fix PR (as expected):
+// STATUS (2/2) ____ without fix PR (as expected):
 // https://prover.certora.com/output/65266/4f0b272aae8f4d50b12ea67154f20da9/?anonymousKey=31f95550a4d6604f48a105b46af4cb924fdbf25f
 rule M10_donation_does_not_affect_rewards {
     env e;
@@ -54,6 +76,42 @@ rule M10_donation_does_not_affect_rewards {
             currentContract.tierDeposits[i].shares &&
         pooled_shares[i] ==
             currentContract.tierVaults[i].totalPooledEEthShares;
+
+}
+
+rule eeth_donation_cant_affect_staking_rewards_M10_singe_case {
+    env e;
+    int128 accruedRewards;
+    storage init = lastStorage;
+
+    // Assume tierData.length is 1 for now
+    require currentContract.tierData.length == 1;
+
+    rebase(e, accruedRewards) at init;
+    // Get rewardsIndex for tier 0 
+    uint96 rewardsGlobalIndex0NoDonation =
+        currentContract.tierData[0].rewardsGlobalIndex;
+    uint128 tier_shares_no_donation =
+        currentContract.tierDeposits[0].shares;
+    uint128 pool_shares_no_donation =
+        currentContract.tierVaults[0].totalPooledEEthShares;
+
+    // Roll back to initial state and donate to EETH
+    // Then call rebase with the same value again
+    env e_donate;
+    uint256 amount;
+    eETH.transfer(e_donate, currentContract, amount) at init;
+    rebase(e, accruedRewards);
+    // Get rewardsIndex for tier 0 for execution with donation
+    uint96 rewardsGlobalIndex0WithDonation =
+        currentContract.tierData[0].rewardsGlobalIndex;
+
+    assert rewardsGlobalIndex0NoDonation ==
+        rewardsGlobalIndex0WithDonation;
+    assert currentContract.tierDeposits[0].shares ==
+        tier_shares_no_donation;
+    assert currentContract.tierVaults[0].totalPooledEEthShares ==
+        pool_shares_no_donation;
 
 }
 
