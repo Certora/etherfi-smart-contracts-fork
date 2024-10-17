@@ -152,33 +152,12 @@ rule donation_frontrunning_cannot_cause_M11 {
     
     require eETH.shares[currentContract] < max_uint112;
 
-    // avoid overflow when minting shares
-    // require require_uint256(amount + eETH.shares[currentContract]) <
-    //     max_uint256;
-
-    // Donation could cause an overflow on the following line of EETH.sol
-    //     function mintShares(address _user, uint256 _share) external onlyPoolContract {
-    //     shares[_user] += _share;
-    // which is reached on call to liquidityPool.deposit
-    // OVERFLOW CEX Link:
-    // https://prover.certora.com/output/65266/35a73a9218834d1487920f643e0d1cb3/?anonymousKey=b4ffada6cef7d18842c83dbae54bb1af3a500339
-    // require require_uint256(eETH.shares[currentContract] + fanBoostThresholdEthAmount(e) ) < max_uint256;
-
     // Implicitly assume rebase will not revert from storage "init"
     rebase(e, accruedRewards) at init;
 
     // Roll back to initial state and donate to EETH
     // Then call rebase again with the same value
     eETH.transfer(e_donate, currentContract, amount) at init;
-
-    // Need to ensure that minting shares during LiquidityPool.donate
-    // in rebase does not cause an overflow
-    // uint256 boostThreshold = fanBoostThresholdEthAmount(e);
-    // uint256 totalPooledEther = require_uint256(liquidityPool.getTotalPooledEther(e) - boostThreshold);
-    // require totalPooledEther > 0;
-    // uint256 mintedShares = require_uint256((boostThreshold * eETH.totalShares(e)) / totalPooledEther);
-    // require require_uint256(eETH.shares[currentContract] + mintedShares) < max_uint256;
-    // require require_uint256(eETH.shares[currentContract] + boostThreshold) < max_uint256;
 
     require eETH.shares[currentContract] < max_uint112;
     require eETH.totalShares < max_uint112;
