@@ -3,37 +3,15 @@ import "./Basic.spec";
 using EETH as eETH;
 using LiquidityPool as liquidityPool;
 
-methods {
-    // function globalIndexLibrary.calculateVaultEEthShares(
-    //     address _membershipManager, 
-    //     address _liquidityPool, 
-    //     uint256 _ethRewardsPerEEthShareBeforeRebase, 
-    //     uint256 _ethRewardsPerEEthShareAfterRebase) external returns (uint128[])=> NONDET;
-
-    // function LiquidityPool.sharesForAmount(uint256 _amount) external returns (uint256)  => CVLSharesForAmount(_amount);
-}
-
-
-// NOTE: may need to model effect of eETH.totalSahres
-ghost ghostShares(uint256) returns uint256 {
-    axiom forall uint256 x. forall uint256 y. 
-        x > y => ghostShares(x) > ghostShares(y);
-    axiom forall uint256 x. x == 0 <=> ghostShares(x) == 0;
-}
-function CVLSharesForAmount(uint256 _amount) returns uint256 {
-    return ghostShares(_amount);
-}
-
-
 // Note: this is meant to catch the finding M10 from
 // the certora report.
 // This rule shows: "An attacker cannot influence the distributed rewards
 // by donating eETH"
 // STATUS (1/2) Passing with fix PR
-// commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
+// fix commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
 // https://prover.certora.com/output/65266/65d66225cd394cffbd9b3a2e00e1484b/?anonymousKey=30d7b79109d9795d362e7c64537d9b1350acffe1
-// STATUS (2/2) ____ without fix PR:
-// (TIMEOUT)
+// STATUS (2/2) Timeout without fix PR:
+// See less general version below that is more stable without the fix.
 rule M10_donation_does_not_affect_rewards {
     env e;
     int128 accruedRewards;
@@ -84,10 +62,10 @@ rule M10_donation_does_not_affect_rewards {
 // This rule shows: "An attacker cannot influence the distributed rewards
 // by donating eETH"
 // STATUS (1/2) Passing with fix PR
-// https://prover.certora.com/output/65266/8a5abefff1674cce85c0cdcde5950c80/?anonymousKey=42a38819f042cf454cec0ff6110912fb9d23b3e9
+// Run https://prover.certora.com/output/65266/8a5abefff1674cce85c0cdcde5950c80/?anonymousKey=42a38819f042cf454cec0ff6110912fb9d23b3e9
 // commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
 // STATUS (2/2) Counterexample without fix PR (as expected):
-// https://prover.certora.com/output/65266/4ca76923dc434097b57bf93b2620ae41/?anonymousKey=3d781f6cb09f11c48206c441c77ad1e53099257e
+// Run https://prover.certora.com/output/65266/4ca76923dc434097b57bf93b2620ae41/?anonymousKey=3d781f6cb09f11c48206c441c77ad1e53099257e
 rule eeth_donation_cant_affect_staking_rewards_M10_singe_case {
     env e;
     int128 accruedRewards;
@@ -132,11 +110,11 @@ rule eeth_donation_cant_affect_staking_rewards_M10_singe_case {
 // (which was mentioned as the frontrunning target)
 // and that rebase also reaches calculateRescaledTierRewards
 // which is the site of the divide by 0 in the finding.
-// 
-// STATUS: Timeout
-// https://prover.certora.com/output/65266/d7721945d0844b9d989821c715abb1ff/?anonymousKey=e27fe93bcc011ada8b4c97fbd456bc13cbbecf05
-// Run link with more understandable bounds:
-// https://prover.certora.com/output/65266/1c903adf6a30422eb9007d4834ed7649/?anonymousKey=03ddbe3750fe1c51eaed36039af424cbba0e53ec
+// STATUS (1/2): Passing with fix PR:
+// fix commit from main repo: 246f8ced67b628f320c8958b8b09295c619e82fa
+// Run: https://prover.certora.com/output/65266/2c8b953f42bc4878962025a2c5369b3b/?anonymousKey=60da39e3a293da4459e364dc58a84af57d0045cc
+// STATUS (2/2): Counterexample without fix PR:
+// Run: https://prover.certora.com/output/65266/673d842c9aae42ffa404e293380dae6b/?anonymousKey=797a7280b4b626fe862954be59e22017856f8769
 rule donation_frontrunning_cannot_cause_M11 {
     env e;
     int128 accruedRewards;
