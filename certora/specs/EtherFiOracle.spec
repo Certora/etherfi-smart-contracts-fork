@@ -69,6 +69,23 @@ invariant numActiveIsSumActive()
         }
     }
 
+
+// active members <= total members
+//unable to prove this invariant because a lot of other invariants required
+// invariant invariantTotalMoreThanActive(address _user) 
+//     currentContract.numActiveCommitteeMembers <= currentContract.numCommitteeMembers
+//         filtered {
+//             f -> f.selector != (sig:upgradeToAndCall(address,bytes).selector)
+//         }
+//     {
+//         preserved {
+//             requireInvariant testActiveCommitteeMembersEnabled(_user);
+//             requireInvariant numMembersIsSumMembers();
+//             requireInvariant numActiveIsSumActive();
+//             require(currentContract.numCommitteeMembers > 0);
+//         }
+//     }
+
 //consensus can only be reach if report is agreed by quorum size
 invariant invariantConsensusNotReached(bytes32 _reportHash) 
     currentContract.consensusStates[_reportHash].support < currentContract.quorumSize => !currentContract.consensusStates[_reportHash].consensusReached 
@@ -129,6 +146,7 @@ rule testMemberCannotSubmitTwice() {
     assert lastReverted;
 }
 
+
 //When publishing a report the count only increases 1
 rule testHashUpdatedCorrectly(IEtherFiOracle.OracleReport _report) {
     env e;
@@ -156,3 +174,8 @@ rule testingPublishingReport(IEtherFiOracle.OracleReport report) {
     submitReport(e, report);
     assert (currentContract.committeeMemberStates[e.msg.sender].enabled == true) && (currentContract.committeeMemberStates[e.msg.sender].registered == true);
 }
+
+/*notes from rules
+-what happens if we decrease quorum size submit next report 
+-logic is funky when we change quorum size
+*/
